@@ -27,11 +27,12 @@
 /// \param p - max number of movement in the graph, from the origin cell.
 /// \param originCellPtr -  output ptr for the origin cell of the graph.
 /// \return - the created graph.
-int** createPolyominoGraph(int p, int* originCellPtr) {
+int** createPolyominoGraph(int p, int* originCellPtr, int* nPtr) {
     int originCell = p>=2 ? p-2 : 0;
     *originCellPtr = originCell;
     int height = p + originCell;
     int n = p*height;
+    *nPtr = n;
 
     int** nodes = malloc(n * sizeof(int*));
     int* neighboursGlobal = malloc(n*5* sizeof(int));
@@ -59,25 +60,75 @@ void deleteGraph(int** nodes, int p, int originCell) {
     free(neighboursGlobal);
 }
 
-int recCounter(int** nodes, int p, int originCell/*, ...*/) {
-    return 0;
+int recCounter(int** nodes, int steps, bool* nodesFound, int* untriedSet, int untriedSize) {
+    /*if (steps == 0)
+        return 0;   // TODO: if (steps == 1): return untriedSize;*/
+
+    if (steps == 1)
+        return 1;
+
+    int node = untriedSet[0];
+    untriedSet++;
+    untriedSize--;
+    int counted = 1;
+    int* oldEndOfUntriedSet = untriedSet + untriedSize;
+
+    int* neighbours = nodes[node];
+    int numOfNeighbours = neighbours[0];
+
+    for (int i = 1; i <= numOfNeighbours; i++) {
+        int newNode = neighbours[i];
+        if (!nodesFound[newNode]) {
+            untriedSet[untriedSize++] = newNode;
+            nodesFound[newNode] = true;
+        }
+    }
+
+    if (steps == 2) {
+        untriedSet += untriedSize;
+        while(oldEndOfUntriedSet != untriedSet--)
+            nodesFound[untriedSet[0]] = false;
+        return 1 + untriedSize;
+    }
+
+    while(untriedSize)
+        counted += recCounter(nodes, steps-1, nodesFound, untriedSet++, untriedSize--);
+
+    while(oldEndOfUntriedSet != untriedSet--)
+        nodesFound[untriedSet[0]] = false;
+
+    return counted;
 }
 
-int countSubGraphs(int** nodes, int p, int originCell) {
-    return recCounter(nodes, p, originCell/*, ...*/);
+int countSubGraphs(int** nodes, int p, int n, int originCell) {
+    bool* nodesFound = calloc(n, sizeof(bool));
+    int* untriedSet = malloc(n * sizeof(int));
+    nodesFound[originCell] = true;
+    untriedSet[0] = originCell;
+
+    int count = recCounter(nodes, p, nodesFound, untriedSet, 1);
+
+    free(nodesFound);
+    free(untriedSet);
+    return count;
 }
 
 int countPolyominoes(int p) {
     if (p < 1) return 0;
-    int originCell;
-    int** nodes = createPolyominoGraph(p, &originCell);
-    int count = countSubGraphs(nodes, p, originCell);
+    int originCell, n;
+    int** nodes = createPolyominoGraph(p, &originCell, &n);
+    int count = countSubGraphs(nodes, p, n, originCell);
     deleteGraph(nodes, p, originCell);
     return count;
 }
 
 
 int main() {
-    printf("%d", countPolyominoes(4));
+    int counted[30];
+    counted[0] = 0;
+    for(int i = 1; i < 30; i++) {
+        counted[i] = countPolyominoes(i);
+        printf("P(%d) = %d\n", i, counted[i] - counted[i - 1]);
+    }
     return 0;
 }
