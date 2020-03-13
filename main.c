@@ -56,8 +56,40 @@ int** createPolyominoGraph(int p, int* originCellPtr, int* nPtr) {
     return nodes;
 }
 
-void deleteGraph(int** nodes, int originCell) {
-    int* neighboursGlobal = nodes[originCell] - 5*originCell;
+int** createPolycubesGraph(int p, int* originCellPtr, int* nPtr) {
+    int originCell = p>=2 ? p-2 : 0;
+    *originCellPtr = originCell;
+    int height = p + originCell;
+    int floorSize = p*height;
+    int n = p*floorSize;
+    *nPtr = n;
+
+    int** nodes = malloc(n * sizeof(int*));
+    int* neighboursGlobal = malloc(n*7* sizeof(int));
+
+    for(int i = originCell; i < n; i++) {
+        int* neighbours = neighboursGlobal + 7*i;
+        int counter = 0;
+        if ( (i/floorSize == 0 && i - height >= originCell) || (i/floorSize!=0 && (i-height)/floorSize == i/floorSize) )
+            neighbours[++counter] = i - height;
+        if ((i+height)/floorSize == i/floorSize)
+            neighbours[++counter] = i + height;
+        if (((i%height) != 0) && (i != originCell))
+            neighbours[++counter] = i-1;
+        if (((i+1)%height) != 0)
+            neighbours[++counter] = i+1;
+        if (i-floorSize >= originCell)
+            neighbours[++counter] = i-floorSize;
+        if (i-floorSize < n)
+            neighbours[++counter] = i+floorSize;
+        neighbours[0] = counter;
+        nodes[i] = neighbours;
+    }
+    return nodes;
+}
+
+void deleteGraph(int** nodes, int originCell, int neighboursSize) {
+    int* neighboursGlobal = nodes[originCell] - neighboursSize*originCell;
     free(nodes);
     free(neighboursGlobal);
 }
@@ -129,20 +161,31 @@ u64 countPolyominoes(int p) {
     int originCell, n;
     int** nodes = createPolyominoGraph(p, &originCell, &n);
     u64 count = countSubGraphs(nodes, p, n, originCell);
-    deleteGraph(nodes, originCell);
+    deleteGraph(nodes, originCell, 5);
     return count;
 }
 
 
 int main() {
-    u64 counted[30];
-    clock_t times[30];
-    counted[0] = 0;
-    times[0] = clock();
-    for(int i = 1; i < 30; i++) {
-        counted[i] = countPolyominoes(i);
-        times[i] = clock();
-        printf("P(%2d) = %16llu  ~ %lds\n", i, counted[i]-counted[i - 1], (times[i]-times[i-1])/CLOCKS_PER_SEC);
+
+    bool debug = true;
+    if (debug){
+        int p = 2;
+        int originCell, n;
+        int** nodes = createPolycubesGraph(p, &originCell, &n);
+        u64 count = countSubGraphs(nodes, p, n, originCell);
+        printf("%llu\n",count);
+        deleteGraph(nodes,originCell,7);
+    } else{
+        u64 counted[30];
+        clock_t times[30];
+        counted[0] = 0;
+        times[0] = clock();
+        for(int i = 1; i < 30; i++) {
+            counted[i] = countPolyominoes(i);
+            times[i] = clock();
+            printf("P(%2d) = %16llu  ~ %lds\n", i, counted[i]-counted[i - 1], (times[i]-times[i-1])/CLOCKS_PER_SEC);
+        }
     }
     return 0;
 }
