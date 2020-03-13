@@ -65,39 +65,37 @@ void deleteGraph(int** nodes, int originCell) {
 ///
 /// \param nodes - the graph itself.
 /// \param steps - number of nodes to add to the sub-graph.
-/// \param nodesFound - boolean array of whether a node is in the sub-graph or in the untriedSet.
+/// \param nodesFound - boolean array of whether a node is in the sub-graph / untriedSet, or isn't.
 /// \param untriedSet - array of size 'untriedSize' containing all the reachable-but-not-used of the sub-graph.
 /// \param untriedSize - number of elements in the untried set.
 /// \return - number of sub-graphs
-u64 recCounter(int** nodes, int steps, bool* nodesFound, int* untriedSet, int untriedSize) {
-    int node = untriedSet[0];
-    untriedSet++;
-    untriedSize--;
-    u64 counted = 1;
-    int* oldEndOfUntriedSet = untriedSet + untriedSize;
-
+u64 recCounter(int** nodes, int steps, bool* nodesFound, int* untriedSet, int* untriedSetEnd) {
+    int node = *(untriedSet++);   // pop node from untried set
     int* neighbours = nodes[node];
     int numOfNeighbours = neighbours[0];
 
     if (steps == 2) {   // recursion stop condition
+        untriedSetEnd += numOfNeighbours;
         for (int i = 1; i <= numOfNeighbours; i++)
-            untriedSize += 1-nodesFound[neighbours[i]];
-        return 1 + untriedSize;
+            untriedSetEnd -= nodesFound[neighbours[i]];
+        return 1 + untriedSetEnd-untriedSet;
     }
 
-    for (int i = 1; i <= numOfNeighbours; i++) {
+    int* oldUntriedSetEnd = untriedSetEnd;
+    for (int i = 1; i <= numOfNeighbours; i++) {    // add new neighbours to untried set and found set
         int newNode = neighbours[i];
         if (!nodesFound[newNode]) {
-            untriedSet[untriedSize++] = newNode;
+            *(untriedSetEnd++) = newNode;
             nodesFound[newNode] = true;
         }
     }
 
-    while(untriedSize)
-        counted += recCounter(nodes, steps-1, nodesFound, untriedSet++, untriedSize--);
+    u64 counted = 1;        // count current sub-graph.
+    while(untriedSet != untriedSetEnd)
+        counted += recCounter(nodes, steps-1, nodesFound, untriedSet++, untriedSetEnd);
 
-    while(oldEndOfUntriedSet != untriedSet--)
-        nodesFound[untriedSet[0]] = false;
+    while(oldUntriedSetEnd != untriedSetEnd)    // remove all new neighbours from found set.
+        nodesFound[*(--untriedSetEnd)] = false;
 
     return counted;
 }
@@ -116,7 +114,7 @@ u64 countSubGraphs(int** nodes, int p, int n, int originCell) {
     nodesFound[originCell] = true;
     untriedSet[0] = originCell;
 
-    u64 count = recCounter(nodes, p, nodesFound, untriedSet, 1);
+    u64 count = recCounter(nodes, p, nodesFound, untriedSet, untriedSet+1);
 
     free(nodesFound);
     free(untriedSet);
@@ -144,7 +142,7 @@ int main() {
     for(int i = 1; i < 30; i++) {
         counted[i] = countPolyominoes(i);
         times[i] = clock();
-        printf("P(%2d) = %13llu  ~ %lds\n", i, counted[i]-counted[i - 1], (times[i]-times[i-1])/CLOCKS_PER_SEC);
+        printf("P(%2d) = %16llu  ~ %lds\n", i, counted[i]-counted[i - 1], (times[i]-times[i-1])/CLOCKS_PER_SEC);
     }
     return 0;
 }
