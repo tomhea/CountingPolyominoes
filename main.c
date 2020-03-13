@@ -28,6 +28,7 @@ typedef unsigned long long u64;
 */
 /// \param p - max number of movement in the graph, from the origin cell.
 /// \param originCellPtr - output ptr for the origin cell of the graph.
+/// \param nPtr - output ptr for the number of vertices in the graph.
 /// \return - the created graph.
 int** createPolyominoGraph(int p, int* originCellPtr, int* nPtr) {
     int originCell = p>=2 ? p-2 : 0;
@@ -37,7 +38,7 @@ int** createPolyominoGraph(int p, int* originCellPtr, int* nPtr) {
     *nPtr = n;
 
     int** nodes = malloc(n * sizeof(int*));
-    int* neighboursGlobal = malloc(n*5* sizeof(int));
+    int* neighboursGlobal = malloc(n*(1+4)* sizeof(int));
 
     for(int i = originCell; i < n; i++) {
         int* neighbours = neighboursGlobal + 5*i;
@@ -56,32 +57,85 @@ int** createPolyominoGraph(int p, int* originCellPtr, int* nPtr) {
     return nodes;
 }
 
+///
+/// \param p - max number of movement in the graph, from the origin cell.
+/// \param originCellPtr - output ptr for the origin cell of the graph.
+/// \param nPtr - output ptr for the number of vertices in the graph.
+/// \return - the created graph.
 int** createPolycubesGraph(int p, int* originCellPtr, int* nPtr) {
-    int originCell = p>=2 ? p-2 : 0;
+    int originCellY = p>=2 ? (p-2) : 0;
+    int originCellZ = p>=2 ? (p-2) : 0;
+    int height = p+originCellZ;
+    int length = p+originCellY;
+    int plate = height*length;
+    int originCell = originCellY*height + originCellZ;
     *originCellPtr = originCell;
-    int height = p + originCell;
-    int floorSize = p*height;
-    int n = p*floorSize;
+    int n = p*plate;
     *nPtr = n;
 
     int** nodes = malloc(n * sizeof(int*));
-    int* neighboursGlobal = malloc(n*7* sizeof(int));
+    int* neighboursGlobal = malloc(n*(1+6)* sizeof(int));
 
     for(int i = originCell; i < n; i++) {
         int* neighbours = neighboursGlobal + 7*i;
+
         int counter = 0;
-        if ( (i/floorSize == 0 && i - height >= originCell) || (i/floorSize!=0 && (i-height)/floorSize == i/floorSize) )
-            neighbours[++counter] = i - height;
-        if ((i+height)/floorSize == i/floorSize)
-            neighbours[++counter] = i + height;
+        if (i - plate >= originCell)
+            neighbours[++counter] = i - plate;
+        if (i + plate < n)
+            neighbours[++counter] = i + plate;
         if (((i%height) != 0) && (i != originCell))
             neighbours[++counter] = i-1;
         if (((i+1)%height) != 0)
             neighbours[++counter] = i+1;
-        if (i-floorSize >= originCell)
-            neighbours[++counter] = i-floorSize;
-        if (i-floorSize < n)
-            neighbours[++counter] = i+floorSize;
+        if (i - height >= originCell && (i%plate)/height != 0)
+            neighbours[++counter] = i - height;
+        if (((i+height)%plate)/height != 0)
+            neighbours[++counter] = i + height;
+        neighbours[0] = counter;
+        nodes[i] = neighbours;
+    }
+    return nodes;
+}
+
+///
+/// \param p - max number of movement in the graph, from the origin cell.
+/// \param originCellPtr - output ptr for the origin cell of the graph.
+/// \param nPtr - output ptr for the number of vertices in the graph.
+/// \return - the created graph.
+/// Counting with the polyiamonds graph should be done twice -
+///     one with 'baseOriginCell' as the origin cell,
+///     and one without the 'baseOriginCell' while using the cell above it 'originCell' as the origin cell.
+/// starting from 'originCell', it's impossible to get to 'baseOriginCell' -
+///     so running the algorithm as mentioned above is enough.
+int** createPolyiamondsGraph(int p, int* originCellPtr, int* nPtr) {
+    int baseOriginCell = (p >= 2 ? p - 2 : 0);
+    baseOriginCell += baseOriginCell % 2;
+    int originCell = baseOriginCell + 1;
+    *originCellPtr = originCell;
+    int height = p + originCell;
+    height += height % 2;
+    int length = p/2 + 1;
+    int n = height*length;
+    *nPtr = n;
+
+    int** nodes = malloc(n * sizeof(int*));
+    int* neighboursGlobal = malloc(n*(1+3)* sizeof(int));
+
+    for(int i = baseOriginCell; i < n; i++) {
+        int* neighbours = neighboursGlobal + 4*i;
+        int counter = 0;
+        if (i % 2 == 0) {   // a right-pointing-triangle
+            if (i - (height - 1) >= originCell)
+                neighbours[++counter] = i - (height - 1);
+        } else {            // a left -pointing-triangle
+            if (i + (height - 1) < n)
+                neighbours[++counter] = i + (height - 1);
+        }
+        if (((i%height) != 0) && (i > originCell))
+            neighbours[++counter] = i-1;
+        if (((i+1)%height) != 0)
+            neighbours[++counter] = i+1;
         neighbours[0] = counter;
         nodes[i] = neighbours;
     }
@@ -167,8 +221,8 @@ u64 countPolyominoes(int p) {
 
 
 ///
-/// \param p - max size of polyominoes.
-/// \return - counts the number of fixed polyominoes up to the size of p.
+/// \param p - max size of polycubes.
+/// \return - counts the number of fixed polycubes up to the size of p.
 u64 countPolycubes(int p) {
     if (p < 1) return 0;
     int originCell, n;
@@ -178,6 +232,21 @@ u64 countPolycubes(int p) {
     return count;
 }
 
+///
+/// \param p - max size of polyiamonds.
+/// \return - counts the number of fixed polyiamonds up to the size of p,
+///             including those start with left -pointing-triangle (count1),
+///                   and those start with right-pointing-triangle (count2 - originCell-1)
+u64 countPolyiamonds(int p) {
+    if (p < 1) return 0;
+    int originCell, n;
+    int** nodes = createPolyiamondsGraph(p, &originCell, &n);
+    u64 count1 = countSubGraphs(nodes, p, n, originCell--);
+    u64 count2 = countSubGraphs(nodes, p, n, originCell);
+    deleteGraph(nodes, originCell, 3);
+    return count1 + count2;
+}
+
 
 int main() {
     u64 counted[30];
@@ -185,7 +254,7 @@ int main() {
     counted[0] = 0;
     times[0] = clock();
     for(int i = 1; i < 30; i++) {
-        counted[i] = countPolycubes(i);
+        counted[i] = countPolyiamonds(i);
         times[i] = clock();
         printf("P(%2d) = %16llu  ~ %lds\n", i, counted[i]-counted[i - 1], (times[i]-times[i-1])/CLOCKS_PER_SEC);
     }
