@@ -27,7 +27,7 @@ typedef unsigned long long u64;
  *  Example for p=4 graph. originCell is 'S'.
 */
 /// \param p - max number of movement in the graph, from the origin cell.
-/// \param originCellPtr -  output ptr for the origin cell of the graph.
+/// \param originCellPtr - output ptr for the origin cell of the graph.
 /// \return - the created graph.
 int** createPolyominoGraph(int p, int* originCellPtr, int* nPtr) {
     int originCell = p>=2 ? p-2 : 0;
@@ -89,7 +89,7 @@ int** createPolycubesGraph(int p, int* originCellPtr, int* nPtr) {
 }
 
 void deleteGraph(int** nodes, int originCell, int neighboursSize) {
-    int* neighboursGlobal = nodes[originCell] - neighboursSize*originCell;
+    int* neighboursGlobal = nodes[originCell] - (neighboursSize+1)*originCell;
     free(nodes);
     free(neighboursGlobal);
 }
@@ -161,31 +161,33 @@ u64 countPolyominoes(int p) {
     int originCell, n;
     int** nodes = createPolyominoGraph(p, &originCell, &n);
     u64 count = countSubGraphs(nodes, p, n, originCell);
-    deleteGraph(nodes, originCell, 5);
+    deleteGraph(nodes, originCell, 4);
+    return count;
+}
+
+
+///
+/// \param p - max size of polyominoes.
+/// \return - counts the number of fixed polyominoes up to the size of p.
+u64 countPolycubes(int p) {
+    if (p < 1) return 0;
+    int originCell, n;
+    int** nodes = createPolycubesGraph(p, &originCell, &n);
+    u64 count = countSubGraphs(nodes, p, n, originCell);
+    deleteGraph(nodes, originCell, 6);
     return count;
 }
 
 
 int main() {
-
-    bool debug = true;
-    if (debug){
-        int p = 2;
-        int originCell, n;
-        int** nodes = createPolycubesGraph(p, &originCell, &n);
-        u64 count = countSubGraphs(nodes, p, n, originCell);
-        printf("%llu\n",count);
-        deleteGraph(nodes,originCell,7);
-    } else{
-        u64 counted[30];
-        clock_t times[30];
-        counted[0] = 0;
-        times[0] = clock();
-        for(int i = 1; i < 30; i++) {
-            counted[i] = countPolyominoes(i);
-            times[i] = clock();
-            printf("P(%2d) = %16llu  ~ %lds\n", i, counted[i]-counted[i - 1], (times[i]-times[i-1])/CLOCKS_PER_SEC);
-        }
+    u64 counted[30];
+    clock_t times[30];
+    counted[0] = 0;
+    times[0] = clock();
+    for(int i = 1; i < 30; i++) {
+        counted[i] = countPolycubes(i);
+        times[i] = clock();
+        printf("P(%2d) = %16llu  ~ %lds\n", i, counted[i]-counted[i - 1], (times[i]-times[i-1])/CLOCKS_PER_SEC);
     }
     return 0;
 }
