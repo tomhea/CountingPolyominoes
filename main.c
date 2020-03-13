@@ -237,13 +237,15 @@ u64 countPolycubes(int p) {
 /// \return - counts the number of fixed polyiamonds up to the size of p,
 ///             including those start with left -pointing-triangle (count1),
 ///                   and those start with right-pointing-triangle (count2 - originCell-1)
-u64 countPolyiamonds(int p) {
+u64 countPolyiamonds(int p, u64* counts) {
     if (p < 1) return 0;
     int originCell, n;
     int** nodes = createPolyiamondsGraph(p, &originCell, &n);
-    u64 count1 = countSubGraphs(nodes, p, n, originCell--);
-    u64 count2 = countSubGraphs(nodes, p, n, originCell);
+    u64 count1 = countSubGraphs(nodes, p, n, originCell);
+    //u64 count2 = countSubGraphs(nodes, p, n, --originCell);
+    u64 count2 = 1 + counts[p-1]; // count2 is same as count1 of previous p, the difference is an added baseOrigin
     deleteGraph(nodes, originCell, 3);
+    counts[p] = count1;
     return count1 + count2;
 }
 
@@ -253,8 +255,13 @@ int main() {
     clock_t times[30];
     counted[0] = 0;
     times[0] = clock();
+
+    // Used only for polyiamonds
+    u64 helpCounts[30];
+    helpCounts[0] = 0;
+
     for(int i = 1; i < 30; i++) {
-        counted[i] = countPolyiamonds(i);
+        counted[i]=countPolyiamonds(i,helpCounts);
         times[i] = clock();
         printf("P(%2d) = %16llu  ~ %lds\n", i, counted[i]-counted[i - 1], (times[i]-times[i-1])/CLOCKS_PER_SEC);
     }
