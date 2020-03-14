@@ -148,6 +148,9 @@ void deleteGraph(int** nodes, int originCell, int neighboursSize) {
     free(neighboursGlobal);
 }
 
+
+
+
 ///
 /// \param nodes - the graph itself.
 /// \param steps - number of nodes to add to the sub-graph.
@@ -188,6 +191,62 @@ u64 recCounter(int** nodes, int steps, bool* nodesFound, int* untriedSet, int* u
 
 ///
 /// \param nodes - the graph itself.
+/// \param steps - number of nodes to add to the sub-graph.
+/// \param nodesFound - boolean array of whether a node is in the sub-graph / untriedSet, or isn't.
+/// \param untriedSet - array of size 'untriedSize' containing all the reachable-but-not-used of the sub-graph.
+/// \param untriedSize - number of elements in the untried set.
+/// \return - number of sub-graphs
+u64 recCounterGOTO(int** nodes, int steps, bool* nodesFound, int* untriedSet, int* untriedSetEnd, u64* countedStack, int** oldUntriedSetEndStack, int** untriedSetStack, int initSteps) {
+    int node, numOfNeighbours, *neighbours, *oldUntriedSetEnd;
+    u64 counted;
+
+    new_call:
+    *(untriedSetStack++) = untriedSet;
+    node = *(untriedSet++);   // pop node from untried set
+    neighbours = nodes[node];
+    numOfNeighbours = neighbours[0];
+
+    if (steps == 2) {   // recursion stop condition
+        oldUntriedSetEnd = untriedSetEnd;
+        untriedSetEnd += numOfNeighbours;
+        for (int i = 1; i <= numOfNeighbours; i++)
+            untriedSetEnd -= nodesFound[neighbours[i]];
+        counted = 1 + untriedSetEnd-untriedSet;
+        untriedSetEnd = oldUntriedSetEnd;
+    } else {
+        *(oldUntriedSetEndStack++) = untriedSetEnd;     // initialize oldUntriedSetEnd
+        for (int i = 1; i <= numOfNeighbours; i++) {    // add new neighbours to untried set and found set
+            int newNode = neighbours[i];
+            if (!nodesFound[newNode]) {
+                *(untriedSetEnd++) = newNode;
+                nodesFound[newNode] = true;
+            }
+        }
+
+        steps--;
+        *(countedStack++) = 1;      // count current sub-graph.
+        while (untriedSet != untriedSetEnd) {
+            goto new_call;
+        return_from_call:
+            untriedSet++;
+            *(countedStack-1) += counted;
+//            counted += recCounterGOTO(nodes, steps - 1, nodesFound, untriedSet++, untriedSetEnd);
+        }
+        counted = *(--countedStack);
+        steps++;
+
+        oldUntriedSetEnd = *(--oldUntriedSetEndStack);
+        while (oldUntriedSetEnd != untriedSetEnd)    // remove all new neighbours from found set.
+            nodesFound[*(--untriedSetEnd)] = false;
+    }
+    untriedSet = *(--untriedSetStack);
+    if (steps < initSteps)
+        goto return_from_call;  // the 'return value' is counted value
+    return counted;
+}
+
+///
+/// \param nodes - the graph itself.
 /// \param p - size of max sub-graphs.
 /// \param n - number of vertices in graph.
 /// \param originCell - starting node for any sub-graph.
@@ -200,7 +259,15 @@ u64 countSubGraphs(int** nodes, int p, int n, int originCell) {
     nodesFound[originCell] = true;
     untriedSet[0] = originCell;
 
-    u64 count = recCounter(nodes, p, nodesFound, untriedSet, untriedSet+1);
+    u64* countedStack = malloc(p * sizeof(u64));
+    int** oldUntriedSetEndStack = malloc(p * sizeof(int*));
+    int** untriedSetStack = malloc(p * sizeof(int*));
+    u64 count = recCounterGOTO(nodes, p, nodesFound, untriedSet, untriedSet+1, countedStack, oldUntriedSetEndStack, untriedSetStack, p);
+    free(countedStack);
+    free(oldUntriedSetEndStack);
+    free(untriedSetStack);
+
+    // u64 count = recCounter(nodes, p, nodesFound, untriedSet, untriedSet+1)
 
     free(nodesFound);
     free(untriedSet);
@@ -264,7 +331,9 @@ int main() {
     helpCounts[0] = 0;
 
     for(int i = 1; i < 30; i++) {
-        counted[i]=countPolyiamonds(i,helpCounts);
+//        counted[i]=countPolyiamonds(i,helpCounts);
+//        counted[i]=countPolycubes(i);
+        counted[i]=countPolyominoes(i);
         times[i] = clock();
         printf("P(%2d) = %16llu  ~ %lds\n", i, counted[i]-counted[i - 1], (times[i]-times[i-1])/CLOCKS_PER_SEC);
     }
