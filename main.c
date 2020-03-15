@@ -1,9 +1,11 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <time.h>
 
 typedef unsigned long long u64;
+#define BACKUP_INTERVALS 1000000
 
 /*
  * Graphs in this project are represented as list of int* (node),
@@ -189,6 +191,79 @@ u64 recCounter(int** nodes, int steps, bool* nodesFound, int* untriedSet, int* u
     return counted;
 }
 
+
+void recover(const char* backUpFilePath,
+             int* steps, u64* counted, u64* nextBackup, int* graphSize, bool* nodesFound,
+             int* startOfUntriedSet, int** untriedSetEndPtr,
+             int** startOfOldUntriedSetEndStack, int*** oldUntriedSetEndStackPtr,
+             int** startOfUntriedSetStack, int*** untriedSetStackPtr) {
+    FILE *f;
+    f = fopen( backUpFilePath , "r");
+
+    fread(steps, sizeof(int), 1, f);
+    fread(counted, sizeof(u64), 1, f);
+    fread(nextBackup, sizeof(u64), 1, f);
+
+    fread(graphSize, sizeof(int), 1, f);
+    fread(nodesFound, sizeof(bool), *graphSize, f);
+
+    int untriedSetEndIdx;   // FIXME: shit starts from here. (when BACKUP_INTERVALS=1000000, on count=37000000..  e.g. prev=NULL)
+    fread(&untriedSetEndIdx, sizeof(int), 1, f);
+    fread(startOfUntriedSet, sizeof(int), untriedSetEndIdx, f);
+    *untriedSetEndPtr = startOfUntriedSet + untriedSetEndIdx;
+
+    int* prevStartOfUntriedSet;
+    fread(&prevStartOfUntriedSet, sizeof(int*), 1, f);
+
+    int oldUntriedSetEndStackIdx;
+    fread(&oldUntriedSetEndStackIdx, sizeof(int), 1, f);
+    fread(startOfOldUntriedSetEndStack, sizeof(int*), oldUntriedSetEndStackIdx, f);
+    *oldUntriedSetEndStackPtr = startOfOldUntriedSetEndStack + oldUntriedSetEndStackIdx;
+    for (int i = 0; i < oldUntriedSetEndStackIdx; i++)
+        startOfOldUntriedSetEndStack[i] = startOfUntriedSet + (startOfOldUntriedSetEndStack[i] - prevStartOfUntriedSet);
+
+    int untriedSetStackIdx;
+    fread(&untriedSetStackIdx, sizeof(int), 1, f);
+    fread(startOfUntriedSetStack, sizeof(int*), untriedSetStackIdx, f);
+    *untriedSetStackPtr = startOfUntriedSetStack + untriedSetStackIdx;
+    for (int i = 0; i < untriedSetStackIdx; i++)
+        startOfUntriedSetStack[i] = startOfUntriedSet + (startOfUntriedSetStack[i] - prevStartOfUntriedSet);
+
+    fclose(f);
+}
+
+void doBackup(const char* backUpPath, const char* tempBackUpPath,
+        int steps, u64 counted, u64 nextBackup, int graphSize, bool* nodesFound,
+        int* startOfUntriedSet, int untriedSetEndIdx,
+        int** startOfOldUntriedSetEndStack, int oldUntriedSetEndStackIdx,
+        int** startOfUntriedSetStack, int untriedSetStackIdx) {
+    FILE *f;
+    f = fopen(tempBackUpPath , "w");
+
+    fwrite(&steps, sizeof(int), 1, f);
+    fwrite(&counted, sizeof(u64), 1, f);
+    fwrite(&nextBackup, sizeof(u64), 1, f);
+
+    fwrite(&graphSize, sizeof(int), 1, f);
+    fwrite(nodesFound, sizeof(bool), graphSize, f);
+
+    fwrite(&untriedSetEndIdx, sizeof(int), 1, f);
+    fwrite(startOfUntriedSet, sizeof(int), untriedSetEndIdx, f);
+
+    fwrite(&startOfUntriedSet, sizeof(int*), 1, f);
+
+    fwrite(&oldUntriedSetEndStackIdx, sizeof(int), 1, f);
+    fwrite(startOfOldUntriedSetEndStack, sizeof(int*), oldUntriedSetEndStackIdx, f);
+
+    fwrite(&untriedSetStackIdx, sizeof(int), 1, f);
+    fwrite(startOfUntriedSetStack, sizeof(int*), untriedSetStackIdx, f);
+
+    fclose(f);
+
+    remove(backUpPath);
+    rename(tempBackUpPath, backUpPath);
+}
+
 ///
 /// \param nodes - the graph itself.
 /// \param steps - number of nodes to add to the sub-graph.
@@ -196,9 +271,32 @@ u64 recCounter(int** nodes, int steps, bool* nodesFound, int* untriedSet, int* u
 /// \param untriedSet - array of size 'untriedSize' containing all the reachable-but-not-used of the sub-graph.
 /// \param untriedSize - number of elements in the untried set.
 /// \return - number of sub-graphs
-u64 recCounterGOTO(int** nodes, int steps, bool* nodesFound, int* untriedSet, int* untriedSetEnd, u64* countedStack, int** oldUntriedSetEndStack, int** untriedSetStack, int initSteps) {
+u64 recCounterGOTO(int** nodes, bool* nodesFound, int* untriedSet, int* untriedSetEnd, int** oldUntriedSetEndStack, int** untriedSetStack, int initSteps, int graphSize, const char* backUpPath, const char* tempBackUpPath) {
     int node, numOfNeighbours, *neighbours, *oldUntriedSetEnd;
-    u64 counted;
+    u64 counted = 0;
+    u64 nextBackup = BACKUP_INTERVALS;
+    int steps = initSteps;
+
+    int* startOfUntriedSet = untriedSet;
+    int** startOfOldUntriedSetEndStack = oldUntriedSetEndStack;
+    int** startOfUntriedSetStack = untriedSetStack;
+
+    if(access(backUpPath, F_OK ) != -1) {
+        recover(backUpPath,
+                &steps, &counted, &nextBackup, &graphSize, nodesFound,
+                startOfUntriedSet, &untriedSetEnd,
+                startOfOldUntriedSetEndStack, &oldUntriedSetEndStack,
+                startOfUntriedSetStack, &untriedSetStack);
+        goto continue_recovered;
+    } else if (access(tempBackUpPath, F_OK) != -1) {
+        recover(tempBackUpPath,
+                &steps, &counted, &nextBackup, &graphSize, nodesFound,
+                startOfUntriedSet, &untriedSetEnd,
+                startOfOldUntriedSetEndStack, &oldUntriedSetEndStack,
+                startOfUntriedSetStack, &untriedSetStack);
+        rename(tempBackUpPath, backUpPath);
+        goto continue_recovered;
+    }
 
     new_call:
     *(untriedSetStack++) = untriedSet;
@@ -211,7 +309,7 @@ u64 recCounterGOTO(int** nodes, int steps, bool* nodesFound, int* untriedSet, in
         untriedSetEnd += numOfNeighbours;
         for (int i = 1; i <= numOfNeighbours; i++)
             untriedSetEnd -= nodesFound[neighbours[i]];
-        counted = 1 + untriedSetEnd-untriedSet;
+        counted += 1 + untriedSetEnd-untriedSet;
         untriedSetEnd = oldUntriedSetEnd;
     } else {
         *(oldUntriedSetEndStack++) = untriedSetEnd;     // initialize oldUntriedSetEnd
@@ -224,24 +322,32 @@ u64 recCounterGOTO(int** nodes, int steps, bool* nodesFound, int* untriedSet, in
         }
 
         steps--;
-        *(countedStack++) = 1;      // count current sub-graph.
+        counted++;      // count current sub-graph.
         while (untriedSet != untriedSetEnd) {
             goto new_call;
         return_from_call:
             untriedSet++;
-            *(countedStack-1) += counted;
-//            counted += recCounterGOTO(nodes, steps - 1, nodesFound, untriedSet++, untriedSetEnd);
         }
-        counted = *(--countedStack);
         steps++;
 
         oldUntriedSetEnd = *(--oldUntriedSetEndStack);
         while (oldUntriedSetEnd != untriedSetEnd)    // remove all new neighbours from found set.
             nodesFound[*(--untriedSetEnd)] = false;
+
+        if (counted >= nextBackup) {
+            nextBackup += BACKUP_INTERVALS;
+            doBackup(backUpPath, tempBackUpPath, steps, counted, nextBackup, graphSize, nodesFound,
+                    startOfUntriedSet, untriedSetEnd-startOfUntriedSet,
+                    startOfOldUntriedSetEndStack, oldUntriedSetEndStack-startOfOldUntriedSetEndStack,
+                    startOfUntriedSetStack, untriedSetStack-startOfUntriedSetStack);
+            continue_recovered:;
+        }
     }
     untriedSet = *(--untriedSetStack);
     if (steps < initSteps)
         goto return_from_call;  // the 'return value' is counted value
+
+
     return counted;
 }
 
@@ -251,7 +357,7 @@ u64 recCounterGOTO(int** nodes, int steps, bool* nodesFound, int* untriedSet, in
 /// \param n - number of vertices in graph.
 /// \param originCell - starting node for any sub-graph.
 /// \return - number of sub-graphs of 'nodes' contains at most 'p' nodes, including 'originCell'.
-u64 countSubGraphs(int** nodes, int p, int n, int originCell) {
+u64 countSubGraphs(int** nodes, int p, int n, int originCell, const char* backupName) {
     if (p <= 1) return p == 1;
 
     bool* nodesFound = calloc(n, sizeof(bool));
@@ -259,11 +365,21 @@ u64 countSubGraphs(int** nodes, int p, int n, int originCell) {
     nodesFound[originCell] = true;
     untriedSet[0] = originCell;
 
-    u64* countedStack = malloc(p * sizeof(u64));
+    char path[80], tempPath[80];
+    char p_str[5];
+    itoa(p, p_str, 10);
+    strcpy(path, backupName);
+    strcat(path, "_");
+    strcat(path, p_str);
+    strcat(path, ".txt");
+    strcpy(tempPath, "_temp_");
+    strcat(tempPath, path);
+
+//    u64* countedStack = malloc(p * sizeof(u64));
     int** oldUntriedSetEndStack = malloc(p * sizeof(int*));
     int** untriedSetStack = malloc(p * sizeof(int*));
-    u64 count = recCounterGOTO(nodes, p, nodesFound, untriedSet, untriedSet+1, countedStack, oldUntriedSetEndStack, untriedSetStack, p);
-    free(countedStack);
+    u64 count = recCounterGOTO(nodes, nodesFound, untriedSet, untriedSet+1, oldUntriedSetEndStack, untriedSetStack, p, n, path, tempPath);
+//    free(countedStack);
     free(oldUntriedSetEndStack);
     free(untriedSetStack);
 
@@ -281,7 +397,7 @@ u64 countPolyominoes(int p) {
     if (p < 1) return 0;
     int originCell, n;
     int** nodes = createPolyominoGraph(p, &originCell, &n);
-    u64 count = countSubGraphs(nodes, p, n, originCell);
+    u64 count = countSubGraphs(nodes, p, n, originCell, "Polyomino");
     deleteGraph(nodes, originCell, 4);
     return count;
 }
@@ -294,7 +410,7 @@ u64 countPolycubes(int p) {
     if (p < 1) return 0;
     int originCell, n;
     int** nodes = createPolycubesGraph(p, &originCell, &n);
-    u64 count = countSubGraphs(nodes, p, n, originCell);
+    u64 count = countSubGraphs(nodes, p, n, originCell, "Polycube");
     deleteGraph(nodes, originCell, 6);
     return count;
 }
@@ -308,12 +424,12 @@ u64 countPolyiamonds(int p, u64* counts) {
     if (p < 1) return 0;
     int originCell, n;
     int** nodes = createPolyiamondsGraph(p, &originCell, &n);
-    u64 count1 = countSubGraphs(nodes, p, n, originCell), count2;
+    u64 count1 = countSubGraphs(nodes, p, n, originCell, "Polyiamond_count1"), count2;
     if (counts) {
         count2 = 1 + counts[p-1]; // count2 is same as count1 of previous p, the difference is an added baseOrigin
         counts[p] = count1;
     } else {
-        count2 = countSubGraphs(nodes, p, n, originCell-1);
+        count2 = countSubGraphs(nodes, p, n, originCell-1, "Polyiamond_count2");
     }
     deleteGraph(nodes, originCell, 3);
     return count1 + count2;
