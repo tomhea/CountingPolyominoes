@@ -198,7 +198,7 @@ void recover(const char* backUpFilePath,
              int** startOfOldUntriedSetEndStack, int*** oldUntriedSetEndStackPtr,
              int** startOfUntriedSetStack, int*** untriedSetStackPtr) {
     FILE *f;
-    f = fopen( backUpFilePath , "r");
+    f = fopen( backUpFilePath , "rb");
 
     fread(steps, sizeof(int), 1, f);
     fread(counted, sizeof(u64), 1, f);
@@ -207,7 +207,7 @@ void recover(const char* backUpFilePath,
     fread(graphSize, sizeof(int), 1, f);
     fread(nodesFound, sizeof(bool), *graphSize, f);
 
-    int untriedSetEndIdx;   // FIXME: shit starts from here. (when BACKUP_INTERVALS=1000000, on count=37000000..  e.g. prev=NULL)
+    int untriedSetEndIdx;
     fread(&untriedSetEndIdx, sizeof(int), 1, f);
     fread(startOfUntriedSet, sizeof(int), untriedSetEndIdx, f);
     *untriedSetEndPtr = startOfUntriedSet + untriedSetEndIdx;
@@ -238,7 +238,7 @@ void doBackup(const char* backUpPath, const char* tempBackUpPath,
         int** startOfOldUntriedSetEndStack, int oldUntriedSetEndStackIdx,
         int** startOfUntriedSetStack, int untriedSetStackIdx) {
     FILE *f;
-    f = fopen(tempBackUpPath , "w");
+    f = fopen(tempBackUpPath , "wb");
 
     fwrite(&steps, sizeof(int), 1, f);
     fwrite(&counted, sizeof(u64), 1, f);
