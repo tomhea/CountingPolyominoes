@@ -5,7 +5,7 @@
 #include <time.h>
 
 typedef unsigned long long u64;
-#define BACKUP_INTERVALS 1000000
+#define BACKUP_INTERVALS 10000000
 
 /*
  * Graphs in this project are represented as list of int* (node),
@@ -272,6 +272,7 @@ void doBackup(const char* backUpPath, const char* tempBackUpPath,
 /// \param untriedSize - number of elements in the untried set.
 /// \return - number of sub-graphs
 u64 recCounterGOTO(int** nodes, bool* nodesFound, int* untriedSet, int* untriedSetEnd, int** oldUntriedSetEndStack, int** untriedSetStack, int initSteps, int graphSize, const char* backUpPath, const char* tempBackUpPath) {
+    //TODO declare register
     int node, numOfNeighbours, *neighbours, *oldUntriedSetEnd;
     u64 counted = 0;
     u64 nextBackup = BACKUP_INTERVALS;
@@ -322,6 +323,7 @@ u64 recCounterGOTO(int** nodes, bool* nodesFound, int* untriedSet, int* untriedS
         }
 
         steps--;
+        // TODO: count only biggest, or count all in count[].
         counted++;      // count current sub-graph.
         while (untriedSet != untriedSetEnd) {
             goto new_call;
@@ -334,7 +336,7 @@ u64 recCounterGOTO(int** nodes, bool* nodesFound, int* untriedSet, int* untriedS
         while (oldUntriedSetEnd != untriedSetEnd)    // remove all new neighbours from found set.
             nodesFound[*(--untriedSetEnd)] = false;
 
-        if (counted >= nextBackup) {
+        if (counted >= nextBackup || steps == initSteps) {
             nextBackup += BACKUP_INTERVALS;
             doBackup(backUpPath, tempBackUpPath, steps, counted, nextBackup, graphSize, nodesFound,
                     startOfUntriedSet, untriedSetEnd-startOfUntriedSet,
@@ -437,16 +439,17 @@ u64 countPolyiamonds(int p, u64* counts) {
 
 
 int main() {
-    u64 counted[30];
-    clock_t times[30];
+    int N = 35;
+    u64 counted[N];
+    clock_t times[N];
     counted[0] = 0;
     times[0] = clock();
 
     // Used only for polyiamonds
-    u64 helpCounts[30];
+    u64 helpCounts[N];
     helpCounts[0] = 0;
 
-    for(int i = 1; i < 30; i++) {
+    for(int i = 1; i < N; i++) {
 //        counted[i]=countPolyiamonds(i,helpCounts);
 //        counted[i]=countPolycubes(i);
         counted[i]=countPolyominoes(i);
