@@ -145,17 +145,17 @@ int main (
    /* [Init] */
    ptime = 0.0;
    clk0 = clock ();
-   bzero (count, sizeof (count));
-   bzero (perstat, sizeof (perstat));
-   bzero (bbxstat, sizeof (bbxstat));
-   bzero (untried, sizeof (untried));
-   bzero (all_neis, sizeof (all_neis));
+   memset (count,0, sizeof (count));
+   memset (perstat,0, sizeof (perstat));
+   memset (bbxstat,0, sizeof (bbxstat));
+   memset (untried,0, sizeof (untried));
+   memset (all_neis,0, sizeof (all_neis));
    for (j = 0; j <= MAX_SIZE - 2; j ++)
       for (i = - MAX_SIZE + 3; i <= MAX_SIZE - 2; i ++) {
          if (j == 0 && i < 0)
             continue;
          p = j * X_SIZE + i + MAX_SIZE - 2;
-            
+
          all_neis [p].n_neis = 2;
          all_neis [p].neis [0] = p + 1;
          all_neis [p].neis [1] = p + X_SIZE;
@@ -166,7 +166,7 @@ int main (
       }
 
    /* The algorithm is started with the parent being the empty polyomino, */
-   bzero (board, sizeof (board));
+   memset (board,0, sizeof (board));
    /* and the untried set containing only the origin. */
    hdr = MAX_SIZE - 2;
    WARM_RESTART:
@@ -260,7 +260,7 @@ void fixed (
       cur = hdr;
       GET_SUCC (cur, hdr);
 
-       
+
       /* 1.5 Update perimeter statistics. */
       for (addper = i = 0, p = all_neis [cur].neis;
            i < all_neis [cur].n_neis; i ++) {
@@ -268,20 +268,20 @@ void fixed (
          if (CHECK_BOARD (n, FREE))
             addper ++;
       }
-       
-      if (cur == MAX_SIZE-2)  
+
+      if (cur == MAX_SIZE-2)
          addper += 2;
-      else if (cur <= 3*MAX_SIZE-6)  
-         addper ++;                  
-      if ((cur == X_SIZE-1) || (cur == X_SIZE))  
-         addper += 2;                            
-      else if (cur == (X_SIZE*(MAX_SIZE-1)+MAX_SIZE-2))  
+      else if (cur <= 3*MAX_SIZE-6)
+         addper ++;
+      if ((cur == X_SIZE-1) || (cur == X_SIZE))
+         addper += 2;
+      else if (cur == (X_SIZE*(MAX_SIZE-1)+MAX_SIZE-2))
          addper += 3;
       savetotper = totper;
       totper += addper-1;
       perstat[size+1][totper]++;
 
-       
+
       /* 1.6 Update bounding-box statistics. */
       i = cur % X_SIZE;
       j = (cur - i) / X_SIZE;
@@ -298,8 +298,8 @@ void fixed (
       else if (bbx_max_y < j)
          bbx_max_y = j;
       bbxstat[size+1][bbx_max_x-bbx_min_x+1][bbx_max_y-bbx_min_y+1]++;
- 
- 
+
+
 
       /* 2. Place a cell at this point. */
       SET_BOARD (cur, OCCUPIED);
@@ -325,7 +325,7 @@ void fixed (
          /* (b) Call this algorithm recursively with the new parent being   */
          /*     the current polyomino, and the new untried set being a copy */
          /*     of the current one.                                         */
-          
+
          PUSH (hdr, save_hdr, cur, savetotper);
          PUSH (save_bbx_min_x, save_bbx_max_x, save_bbx_min_y, save_bbx_max_y);
          goto RESTART;
@@ -338,7 +338,7 @@ void fixed (
          }
       }
 
-       
+
       /* 4.5 Restore perimeter. */
       totper = savetotper;
       /* 4.6 Restore bounding-box. */
@@ -352,7 +352,7 @@ void fixed (
       size --;
    }
 
-    
+
    if (p_stack) {
       POP (save_bbx_min_x, save_bbx_max_x, save_bbx_min_y, save_bbx_max_y);
       POP (hdr, save_hdr, cur, savetotper);
