@@ -3,12 +3,13 @@
 #include <unistd.h>
 #include <ctime>
 
+typedef unsigned int u32;   // TODO: move whatever we can to unsigned
 typedef unsigned long long u64;
 #define BACKUP_INTERVALS 1000000000     // ~every 5 seconds
 
 //#define Polyiamonds       // https://oeis.org/A001420/b001420.txt
-#define Polyominoes       // https://oeis.org/A001168/b001168.txt
-//#define Polycubes         // https://oeis.org/A001931/b001931.txt
+//#define Polyominoes       // https://oeis.org/A001168/b001168.txt
+#define Polycubes         // https://oeis.org/A001931/b001931.txt
 
 #define BACKUP true
 
@@ -105,7 +106,7 @@ int** createPolycubesGraph(int p, int* originCellPtr, int* nPtr) {
     int n = p*plate;
     *nPtr = n;
 
-    int** nodes = (int**)malloc(n * sizeof(int*));
+    int** nodes = (int**)malloc(n * sizeof(int*));              // TODO: change to cpp initializations in all file (and maybe use struct for nodes, like: {numOfNeighs, neighs[4]})
     int* neighboursGlobal = (int*)malloc(n*(1+6)* sizeof(int));
 
     for(int i = originCell; i < n; i++) {   // TODO: delete the six inner 'else' if want normal (but slower) graph
@@ -331,11 +332,13 @@ u64 recCounterGOTO(int** nodes, bool* nodesFound, int* untriedSet, int* untriedS
     int** startOfUntriedSetStack = untriedSetStack;
 
     if (initSteps <= 2) {       // base cases.
-        if (initSteps <= 1) return initSteps == 1;
-        neighbours = nodes[*untriedSet];
+        if (initSteps <= 0) return 0;
+        if (initSteps == 1) return 1 + COUNT_STEP_BELOW;
+
+        neighbours = nodes[untriedSet[0]];
         counted = COUNT_STEP_BELOW;
         for (int i = 1; i <= NUM_OF_NEIGHBOURS; i++)
-            counted += !nodesFound[neighbours[i]];
+            counted += !nodesFound[neighbours[i]];      // TODO: maybe change to bool* isNew instead of bool* nodesFound (same same, but negative) for more optimizations.
         return counted;
     }
 
@@ -406,7 +409,7 @@ u64 recCounterGOTO(int** nodes, bool* nodesFound, int* untriedSet, int* untriedS
 /// \param originCell - starting node for any sub-graph.
 /// \return - number of sub-graphs of 'nodes' contains at most 'p' nodes, including 'originCell'.
 u64 countSubGraphs(int** nodes, int p, int n, int originCell, const char* backupName) {
-    if (p <= 1) return p == 1;
+    if (p <= 0) return 0;
 
     bool* nodesFound = (bool*)calloc(n, sizeof(bool));
     int* untriedSet = (int*)malloc(n * sizeof(int));
@@ -418,20 +421,17 @@ u64 countSubGraphs(int** nodes, int p, int n, int originCell, const char* backup
     itoa(p, p_str, 10);
     strcpy(path, backupName);
     strcat(path, "_");
+    if (p < 10) strcat(path, "0");
     strcat(path, p_str);
     strcat(path, ".txt");
     strcpy(tempPath, "_temp_");
     strcat(tempPath, path);
 
-//    u64* countedStack = malloc(p * sizeof(u64));
     int** oldUntriedSetEndStack = (int**)malloc(p * sizeof(int*));
     int** untriedSetStack = (int**)malloc(p * sizeof(int*));
     u64 count = recCounterGOTO(nodes, nodesFound, untriedSet, untriedSet+1, oldUntriedSetEndStack, untriedSetStack, p, n, path, tempPath);
-//    free(countedStack);
     free(oldUntriedSetEndStack);
     free(untriedSetStack);
-
-    // u64 count = recCounter(nodes, p, nodesFound, untriedSet, untriedSet+1)
 
     free(nodesFound);
     free(untriedSet);
@@ -472,7 +472,7 @@ u64 countPolyiamonds(int p) {
     if (p < 1) return 0;
     int originCell, n;
     int** nodes = createPolyiamondsGraph(p, &originCell, &n);
-    u64 count = countSubGraphs(nodes, p, n, originCell, "Polyiamond_count1");
+    u64 count = countSubGraphs(nodes, p, n, originCell, "Polyiamond");
     deleteGraph(nodes, originCell, 3);
     return count;
 
