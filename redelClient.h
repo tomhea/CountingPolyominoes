@@ -1,7 +1,7 @@
 #ifndef COUNTINGPOLYOMINOES_REDELCLIENT_H
 #define COUNTINGPOLYOMINOES_REDELCLIENT_H
 
-#include "graphCreator.h"
+#include "defs.h"
 
 
 int mainClient(string graphFilePath, string jobName);

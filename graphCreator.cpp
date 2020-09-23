@@ -62,7 +62,7 @@ int** createPolycubesGraph(int p, int* originCellPtr, int* nPtr) {
     int n = p*plate;
     *nPtr = n;
 
-    int** nodes = (int**)malloc(n * sizeof(int*));              // TODO: change to cpp initializations in all file (and maybe use struct for nodes, like: {numOfNeighs, neighs[4]})
+    int** nodes = (int**)malloc(n * sizeof(int*));
     int* neighboursGlobal = (int*)malloc(n*(1+6)* sizeof(int));
 
     for(int i = originCell; i < n; i++) {   // TODO: delete the six inner 'else' if want normal (but slower) graph
@@ -142,7 +142,7 @@ int** createPolyiamondsGraph(int p, int* originCellPtr, int* nPtr) {
 }
 
 
-void readGraphFromFile(string path, int* originCell, int*** graph, int* numOfNodes) {
+void readGraphFromFile(const char* path, int* originCell, int*** graph, int* numOfNodes) {
     // Todo
     int** graph = new;;;
     graph = extract(path);
@@ -161,3 +161,94 @@ void deleteGraph(int** nodes, u32 numOfNodes) {
     free(nodes);
 }
 
+
+
+
+
+
+
+
+
+
+
+/////
+///// \param nodes - the graph itself.
+///// \param p - size of max sub-graphs.
+///// \param n - number of vertices in graph.
+///// \param originCell - starting node for any sub-graph.
+///// \return - number of sub-graphs of 'nodes' contains at most 'p' nodes, including 'originCell'.
+//u64 countSubGraphs(int** nodes, int p, int n, int originCell, const char* backupName) {
+//    if (p <= 0) return 0;
+//
+//    bool* nodesFound = (bool*)calloc(n, sizeof(bool));
+//    int* untriedSet = (int*)malloc(n * sizeof(int));
+//    nodesFound[originCell] = true;
+//    untriedSet[0] = originCell;
+//
+//    char path[80], tempPath[80];
+//    char p_str[5];
+//    itoa(p, p_str, 10);
+//    strcpy(path, backupName);
+//    strcat(path, "_");
+//    if (p < 10) strcat(path, "0");
+//    strcat(path, p_str);
+//    strcat(path, ".txt");
+//    strcpy(tempPath, "_temp_");
+//    strcat(tempPath, path);
+//
+//    int** oldUntriedSetEndStack = (int**)malloc(p * sizeof(int*));
+//    int** untriedSetStack = (int**)malloc(p * sizeof(int*));
+//
+//
+//    u64 count = recCounterGOTO(nodes, nodesFound, untriedSet, untriedSet+1, oldUntriedSetEndStack, untriedSetStack, p, n, path, tempPath);
+//    free(oldUntriedSetEndStack);
+//    free(untriedSetStack);
+//
+//    free(nodesFound);
+//    free(untriedSet);
+//    return count;
+//}
+
+/////
+///// \param p - max size of polyominoes.
+///// \return - counts the number of fixed polyominoes up to the size of p.
+//u64 countPolyominoes(int p) {
+//    if (p < 1) return 0;
+//    int originCell, n;
+//    int** nodes = createPolyominoGraph(p, &originCell, &n);
+//    u64 count = countSubGraphs(nodes, p, n, originCell, "Polyomino");
+//    deleteGraph(nodes, originCell, 4);
+//    return count;
+//}
+//
+//
+/////
+///// \param p - max size of polycubes.
+///// \return - counts the number of fixed polycubes up to the size of p.
+//u64 countPolycubes(int p) {
+//    if (p < 1) return 0;
+//    int originCell, n;
+//    int** nodes = createPolycubesGraph(p, &originCell, &n);
+//    u64 count = countSubGraphs(nodes, p, n, originCell, "Polycube");
+//    deleteGraph(nodes, originCell, 6);
+//    return count;
+//}
+//
+///
+/// \param p - max size of polyiamonds.
+/// \return - counts the number of fixed polyiamonds up to the size of p,
+///             including those start with left -pointing-triangle (count1),
+///                   and those start with right-pointing-triangle (count2 - originCell-1)
+//u64 countPolyiamonds(int p) {
+//    if (p < 1) return 0;
+//    int originCell, n;
+//    int** nodes = createPolyiamondsGraph(p, &originCell, &n);
+//    u64 count = countSubGraphs(nodes, p, n, originCell, "Polyiamond");
+//    deleteGraph(nodes, originCell, 3);
+//    return count;
+
+//    u64 count1 = countSubGraphs(nodes, p  , n, originCell, "Polyiamond_count1");
+//    u64 count2 = countSubGraphs(nodes, p-1, n, originCell, "Polyiamond_count2");
+//    deleteGraph(nodes, originCell, 3);
+//    return count1 + count2;
+//}
