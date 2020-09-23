@@ -4,6 +4,6 @@
 #include "defs.h"
 
 
-int mainClient(string graphFilePath, string jobName);
+int mainClient(const char* graphFilePath, const char* jobName);
 
 #endif //COUNTINGPOLYOMINOES_REDELCLIENT_H
