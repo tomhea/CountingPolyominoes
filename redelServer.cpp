@@ -50,7 +50,7 @@ u64 recCounter(int** nodes, u32 steps, bool* nodesFound, int* untriedSet, int* u
 /// \param numOfNodes - number of vertices in graph.
 /// \param originCell - starting node for any sub-graph.
 /// \return - number of sub-graphs of 'nodes' contains at most 'steps' nodes, including 'originCell'.
-bool simpleTimedCountSubGraphs(int** nodes, u32 steps, u32 numOfNodes, int originCell, u64& count) {
+bool simpleTimedCountSubGraphs(int** nodes, u32 steps, u32 numOfNodes, int originCell, u64* count) {
     if (steps <= 1) return steps;
 
     bool* nodesFound = (bool*)calloc(numOfNodes, sizeof(bool));
@@ -60,10 +60,10 @@ bool simpleTimedCountSubGraphs(int** nodes, u32 steps, u32 numOfNodes, int origi
 
     bool success;
     try {
-        count = recCounter(nodes, steps, nodesFound, untriedSet, untriedSet + 1);
+        *count = recCounter(nodes, steps, nodesFound, untriedSet, untriedSet + 1);
         success = true;
     } catch (recTimeout& e) {
-        count = 0;
+        *count = 0;
         success = false;
     }
 
@@ -140,7 +140,7 @@ u64 recCounterGOTO(int** nodes, bool* nodesFound, int* untriedSet, int* untriedS
 }
 
 
-bool canIFinishIt(const char* graphFilePath, u32 steps, u64& result) {
+bool canIFinishIt(const char* graphFilePath, u32 steps, u64* result) {
     int originCell, **graph;
     u32 numOfNodes;
 
@@ -153,7 +153,7 @@ u32 decideWhatLevel(int** graph, int originCell, u32 numOfNodes, u64 approxNumOf
     u32 steps = 1;
     u64 lastResults=-1, results;
     while (true) {
-        if (simpleTimedCountSubGraphs(graph, steps, numOfNodes, originCell, results) == false) {
+        if (simpleTimedCountSubGraphs(graph, steps, numOfNodes, originCell, &results) == false) {
             *numOfJobs = lastResults;
             return steps-1;
         } else if (results > approxNumOfJobs) {
