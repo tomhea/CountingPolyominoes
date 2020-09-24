@@ -11,9 +11,9 @@
  */
 
 
-int** createPolyominoGraph(int p, int* originCellPtr, int* nPtr);
-int** createPolycubesGraph(int p, int* originCellPtr, int* nPtr);
-int** createPolyiamondsGraph(int p, int* originCellPtr, int* nPtr);
+//int** createPolyominoGraph(int p, int* originCellPtr, int* nPtr);
+//int** createPolycubesGraph(int p, int* originCellPtr, int* nPtr);
+//int** createPolyiamondsGraph(int p, int* originCellPtr, int* nPtr);
 void readGraphFromFile(const char* path, int* originCell, int*** graph, u32* numOfNodes);
 void deleteGraph(int** nodes, u32 numOfNodes);
 

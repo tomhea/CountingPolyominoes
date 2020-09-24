@@ -81,7 +81,7 @@ bool simpleTimedCountSubGraphs(int** nodes, u32 steps, u32 numOfNodes, int origi
 /// \param untriedSet - array of size 'untriedSize' containing all the reachable-but-not-used of the sub-graph.
 /// \param untriedSize - number of elements in the untried set.
 /// \return - number of sub-graphs
-u64 recCounterGOTO(int** nodes, bool* nodesFound, int* untriedSet, int* untriedSetEnd, int** oldUntriedSetEndStack, int** untriedSetStack, u32 initSteps, u32 graphSize, u32 forkLevel, char* jobPath, const char* tempJobPath) {
+u64 recJobsCreatorGOTO(int** nodes, bool* nodesFound, int* untriedSet, int* untriedSetEnd, int** oldUntriedSetEndStack, int** untriedSetStack, u32 initSteps, u32 graphSize, u32 forkLevel, char* jobPath, const char* tempJobPath) {
     int *neighbours, *oldUntriedSetEnd;
     u32 steps = initSteps;
 
@@ -100,7 +100,7 @@ u64 recCounterGOTO(int** nodes, bool* nodesFound, int* untriedSet, int* untriedS
 
     *(untriedSetStack++) = untriedSet;          // backup untriedSet and untriedSetEnd
     *(oldUntriedSetEndStack++) = untriedSetEnd; // this will be oldUntriedSetEnd
-    for (int i = 1; i <= NUM_OF_NEIGHBOURS; i++) {    // [4a] - add new neighbours to untried set and found set
+    for (int i = 1; i <= neighbours[0]; i++) {    // [4a] - add new neighbours to untried set and found set
         int newNode = neighbours[i];
         if (!nodesFound[newNode]) {
             *(untriedSetEnd++) = newNode;
@@ -151,7 +151,7 @@ bool canIFinishIt(const char* graphFilePath, u32 steps, u64* result) {
 u32 decideWhatLevel(int** graph, int originCell, u32 numOfNodes, u64 approxNumOfJobs, u64* numOfJobs) {
     // calculate
     u32 steps = 1;
-    u64 lastResults=-1, results;
+    u64 lastResults=-1, results=-1;
     while (true) {
         if (simpleTimedCountSubGraphs(graph, steps, numOfNodes, originCell, &results) == false) {
             *numOfJobs = lastResults;
@@ -172,7 +172,7 @@ u32 decideWhatLevel(int** graph, int originCell, u32 numOfNodes, u64 approxNumOf
 /// \param numOfJobs
 /// \param jobBaseName
 /// \return 0 for success
-u64 createJobs(int** nodes, int originCell, u32 numOfNodes, u32 steps, u32 forkLevel, const char* jobBasePath) {    // jobBaseName + "_" + n + "_" + indexOfJob + ".job"
+u64 recJobsCreatorWrapper(int** nodes, int originCell, u32 numOfNodes, u32 steps, u32 forkLevel, const char* jobBasePath) {    // jobBaseName + "_" + n + "_" + indexOfJob + ".job"
     if (steps <= 1) return steps;
 
     bool* nodesFound = (bool*)calloc(numOfNodes, sizeof(bool));
@@ -188,7 +188,8 @@ u64 createJobs(int** nodes, int originCell, u32 numOfNodes, u32 steps, u32 forkL
     strcpy(tempPath, jobBasePath);
     strcat(tempPath, TEMP_FILE_SUFFIX);
 
-    u64 jobsCreated = recCounterGOTO(nodes, nodesFound, untriedSet, untriedSet+1, oldUntriedSetEndStack, untriedSetStack, steps, numOfNodes, forkLevel, path, tempPath);
+    u64 jobsCreated = recJobsCreatorGOTO(nodes, nodesFound, untriedSet, untriedSet + 1, oldUntriedSetEndStack,
+                                         untriedSetStack, steps, numOfNodes, forkLevel, path, tempPath);
 
     free(nodesFound);
     free(untriedSet);
@@ -203,14 +204,14 @@ u64 createJobs(int** nodes, int originCell, u32 numOfNodes, u32 steps, u32 forkL
 /// \param approxNumOfJobs
 /// \param jobBasePath
 /// \return
-int mainServer(const char* graphFilePath, u32 steps, int approxNumOfJobs, const char* jobBasePath) {
+int jobsCreator(const char* graphFilePath, u32 steps, int approxNumOfJobs, const char* jobBasePath) {
     u64 numOfJobs;
     int originCell, **graph;
     u32 numOfNodes;
 
     readGraphFromFile(graphFilePath, &originCell, &graph, &numOfNodes);
     u32 level = decideWhatLevel(graph, originCell, numOfNodes, approxNumOfJobs, &numOfJobs);
-    u64 jobsCreated = createJobs(graph, originCell, numOfNodes, steps, steps - (level-1), jobBasePath);
+    u64 jobsCreated = recJobsCreatorWrapper(graph, originCell, numOfNodes, steps, steps - (level-1), jobBasePath);
     assert(jobsCreated == numOfJobs);
     deleteGraph(graph, numOfNodes);
     return jobsCreated;

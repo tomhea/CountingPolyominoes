@@ -3,7 +3,8 @@
 
 #include "defs.h"
 
-
-int mainClient(const char* graphFilePath, const char* jobName);
+extern "C" {
+u64 executeJob(const char *graphFilePath, const char *jobPath);
+}
 
 #endif //COUNTINGPOLYOMINOES_REDELCLIENT_H

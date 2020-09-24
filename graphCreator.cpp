@@ -142,11 +142,43 @@ int** createPolyiamondsGraph(int p, int* originCellPtr, int* nPtr) {
 }
 
 
-void readGraphFromFile(const char* path, int* originCell, int*** graph, int* numOfNodes) {
+/// \param p - max number of movement in the graph, from the origin cell.
+/// \param originCellPtr - output ptr for the origin cell of the graph.
+/// \param nPtr - output ptr for the number of vertices in the graph.
+/// \return - the created graph.
+int** createPolyominoGraphImproved(int p, int* originCellPtr, u32* nPtr) {
+    int originCell = p>=2 ? p-2 : 0;
+    *originCellPtr = originCell;
+    int height = p + originCell;
+    int n = p*height;
+    *nPtr = n;
+
+    int** nodes = (int**)malloc(n * sizeof(int*));
+    for (int i = 0; i < n; i++) {
+        nodes[i] = (int*)malloc((1+4)*sizeof(int));
+    }
+
+    for(int i = originCell; i < n; i++) {   // TODO: delete the four inner 'else' if want normal (but slower) graph
+        int* neighbours = nodes[i];
+        int counter = 0;
+        if (i - height >= originCell)
+            neighbours[++counter] = i - height;
+        if (i + height < n)
+            neighbours[++counter] = i + height;
+        if (((i%height) != 0) && (i != originCell))
+            neighbours[++counter] = i-1;
+        if (((i+1)%height) != 0)
+            neighbours[++counter] = i+1;
+        neighbours[0] = counter;
+    }
+    return nodes;
+}
+
+
+void readGraphFromFile(const char* path, int* originCell, int*** graph, u32* numOfNodes) {
     // Todo
-    int** graph = new;;;
-    graph = extract(path);
-    return graph;
+    printf("%s\n", path);
+    *graph = createPolyominoGraphImproved(10, originCell, numOfNodes);
 }
 
 
@@ -200,7 +232,7 @@ void deleteGraph(int** nodes, u32 numOfNodes) {
 //    int** untriedSetStack = (int**)malloc(p * sizeof(int*));
 //
 //
-//    u64 count = recCounterGOTO(nodes, nodesFound, untriedSet, untriedSet+1, oldUntriedSetEndStack, untriedSetStack, p, n, path, tempPath);
+//    u64 count = recJobsCreatorGOTO(nodes, nodesFound, untriedSet, untriedSet+1, oldUntriedSetEndStack, untriedSetStack, p, n, path, tempPath);
 //    free(oldUntriedSetEndStack);
 //    free(untriedSetStack);
 //

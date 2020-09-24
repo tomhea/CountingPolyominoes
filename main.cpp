@@ -2,6 +2,7 @@
 #include "redelClient.h"
 
 int main() {
-    mainClient("", "");
+//    mainClient("", "");
+
     return 0;
 }

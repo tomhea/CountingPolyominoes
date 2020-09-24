@@ -30,8 +30,6 @@ class recTimeout : public exception {};
 
 //#define CLIENT_BACKUP true
 
-#define NUM_OF_NEIGHBOURS neighbours[0]
-
 
 // TODO: change to cpp initializations in all file
 

@@ -17,15 +17,16 @@ u64 recCounterGOTO(int** nodes, bool* nodesFound, int* untriedSet, int** oldUntr
     u32 steps, initSteps;
     int isNewJob;
 
-    int*  startOfUntriedSet;
-    int** startOfOldUntriedSetEndStack;
-    int** startOfUntriedSetStack;
+    int*  startOfUntriedSet = untriedSet;
+    int** startOfOldUntriedSetEndStack = oldUntriedSetEndStack;
+    int** startOfUntriedSetStack = untriedSetStack;
 
     int* untriedSetEnd;
     u32 graphSize;
 
-    bool mainBackup = access(backUpPath, F_OK ) != -1, tempBackup = access(tempBackUpPath, F_OK) != -1;
-    assert(mainBackup || tempBackup);
+    bool mainBackup = access(backUpPath, F_OK ) != -1;
+//    bool tempBackup = access(tempBackUpPath, F_OK) != -1;
+//    assert(mainBackup || tempBackup);
     recover(mainBackup, backUpPath, tempBackUpPath, isNewJob,
             initSteps, steps, counted, nextBackup, graphSize, nodesFound,
             startOfUntriedSet, untriedSetEnd,
@@ -40,9 +41,11 @@ u64 recCounterGOTO(int** nodes, bool* nodesFound, int* untriedSet, int** oldUntr
     // recursion stop conditions
     if (initSteps <= 1) return initSteps;
     if (initSteps == 2) {
+        neighbours = nodes[untriedSet[0]];  // [1] - get top node's neighbours from untried set (will be removed later)
+        // [2] - we don't actually place a cell in our implementation
         // [3] - count the number of neighbours, because that's the number of polyominoes of size initSteps that could be constructed by the current (p-1)-polyomino
         counted += (untriedSetEnd-untriedSet) - 1;     // count all neighbours in untriedSet (without itself, unless COUNT_STEP_BELOW is on)
-        for (int i = 1; i <= NUM_OF_NEIGHBOURS; i++)    // count the current node neighbours, if they weren't been found yet.
+        for (int i = 1; i <= neighbours[0]; i++)    // count the current node neighbours, if they weren't been found yet.
             counted += !nodesFound[neighbours[i]];          // if neighbours[i] doesn't exists, it points to originCell, which was surely found.
         return counted;
     }
@@ -55,14 +58,14 @@ u64 recCounterGOTO(int** nodes, bool* nodesFound, int* untriedSet, int** oldUntr
     if (steps == 2) {   // recursion stop condition
         // [3] - count the number of neighbours, because that's the number of polyominoes of size initSteps that could be constructed by the current (p-1)-polyomino
         counted += (untriedSetEnd-untriedSet) - 1;     // count all neighbours in untriedSet (without itself, unless COUNT_STEP_BELOW is on)
-        for (int i = 1; i <= NUM_OF_NEIGHBOURS; i++)    // count the current node neighbours, if they weren't been found yet.
+        for (int i = 1; i <= neighbours[0]; i++)    // count the current node neighbours, if they weren't been found yet.
             counted += !nodesFound[neighbours[i]];          // if neighbours[i] doesn't exists, it points to originCell, which was surely found.
         goto return_from_call;  // the 'return value' is counted value
     }
 
     *(untriedSetStack++) = untriedSet;          // backup untriedSet and untriedSetEnd
     *(oldUntriedSetEndStack++) = untriedSetEnd; // this will be oldUntriedSetEnd
-    for (int i = 1; i <= NUM_OF_NEIGHBOURS; i++) {    // [4a] - add new neighbours to untried set and found set
+    for (int i = 1; i <= neighbours[0]; i++) {    // [4a] - add new neighbours to untried set and found set
         int newNode = neighbours[i];
         if (!nodesFound[newNode]) {
             *(untriedSetEnd++) = newNode;
@@ -105,15 +108,15 @@ u64 recCounterGOTO(int** nodes, bool* nodesFound, int* untriedSet, int** oldUntr
 /// \param numOfNodes - number of vertices in graph.
 /// \param originCell - starting node for any sub-graph.
 /// \return - number of sub-graphs of 'nodes' contains at most 'p' nodes, including 'originCell'.
-u64 countSubGraphs(int** nodes, u32 numOfNodes, int originCell, const char* jobBasePath) {
+u64 countSubGraphs(int** nodes, u32 numOfNodes, const char* jobPath) {
     bool* nodesFound = (bool*)calloc(numOfNodes, sizeof(bool));
     int* untriedSet = (int*)malloc(numOfNodes * sizeof(int));
     int** oldUntriedSetEndStack = (int**)malloc(numOfNodes * sizeof(int*));   // numOfNodes can be replaced with initSteps
     int** untriedSetStack = (int**)malloc(numOfNodes * sizeof(int*));         // numOfNodes can be replaced with initSteps
 
     char path[MAX_PATH_LEN], tempPath[MAX_PATH_LEN];
-    strcpy(path, jobBasePath);
-    strcpy(tempPath, jobBasePath);
+    strcpy(path, jobPath);
+    strcpy(tempPath, jobPath);
     strcat(tempPath, TEMP_FILE_SUFFIX);
 
     u64 count = recCounterGOTO(nodes, nodesFound, untriedSet, oldUntriedSetEndStack, untriedSetStack, path, tempPath);
@@ -126,9 +129,9 @@ u64 countSubGraphs(int** nodes, u32 numOfNodes, int originCell, const char* jobB
 }
 
 
-int mainClient(const char* graphFilePath, const char* jobBasePath) {
+u64 executeJob(const char* graphFilePath, const char* jobPath) {
     int originCell, **graph;
     u32 numOfNodes;
     readGraphFromFile(graphFilePath, &originCell, &graph, &numOfNodes);
-    return countSubGraphs(graph, numOfNodes, originCell, jobBasePath);
+    return countSubGraphs(graph, numOfNodes, jobPath);
 }
