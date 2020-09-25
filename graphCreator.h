@@ -14,7 +14,8 @@
 //int** createPolyominoGraph(int p, int* originCellPtr, int* nPtr);
 //int** createPolycubesGraph(int p, int* originCellPtr, int* nPtr);
 //int** createPolyiamondsGraph(int p, int* originCellPtr, int* nPtr);
+void createPolyominoGraphFile(const char* path, int size);
 void readGraphFromFile(const char* path, int* originCell, int*** graph, u32* numOfNodes);
-void deleteGraph(int** nodes, u32 numOfNodes);
+void deleteGraph(int** graph, u32 numOfNodes);
 
 #endif //COUNTINGPOLYOMINOES_GRAPHCREATOR_H

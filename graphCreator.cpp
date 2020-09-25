@@ -1,5 +1,9 @@
 #include "graphCreator.h"
-
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <sstream>
+#include <map>
 
 /*  _ _ _ _
  * |_|_|_|_|
@@ -158,6 +162,10 @@ int** createPolyominoGraphImproved(int p, int* originCellPtr, u32* nPtr) {
         nodes[i] = (int*)malloc((1+4)*sizeof(int));
     }
 
+    for(int i = 0; i < originCell; i++){
+        nodes[i][0] = 0;
+    }
+
     for(int i = originCell; i < n; i++) {   // TODO: delete the four inner 'else' if want normal (but slower) graph
         int* neighbours = nodes[i];
         int counter = 0;
@@ -174,23 +182,108 @@ int** createPolyominoGraphImproved(int p, int* originCellPtr, u32* nPtr) {
     return nodes;
 }
 
+void createPolyominoGraphFile(const char* path, int size){
+    ofstream file;
+    file.open (path);
+    file << "4.4.4.4 " << size << endl;
+    int originCell;
+    u32 numOfNodes;
+    int** graph = createPolyominoGraphImproved(size, &originCell, &numOfNodes);
+    file << numOfNodes << endl;
+    file << originCell << endl;
+    for (int i = 0; i < numOfNodes; ++i) {
+        file << i << " " << graph[i][0];
+        for (int j = 0; j < graph[i][0]; ++j) {
+            file << " " << graph[i][1+j];
+        }
+        file << endl;
+    }
+    file.close();
+}
+
+int** extractGraph(int** nodesData, int* originCell, u32* numOfNodes){
+    int** graph = (int**)malloc(*numOfNodes * sizeof(int*));
+    map <int, int> idConverter;
+    int newIds = 0;
+
+    int id;
+    int numOfNeighbors;
+    int* neighbors;
+    for (u32 i = 0; i < *numOfNodes; i++) {
+        id = nodesData[i][0];
+        if(idConverter.find(id) == idConverter.end())
+            idConverter.insert(pair<int,int>(id,newIds++));
+
+        numOfNeighbors = nodesData[i][1];
+        neighbors = (int*) malloc((1 + numOfNeighbors) * sizeof(int));
+        neighbors[0] = numOfNeighbors;
+        for (int j = 0; j < numOfNeighbors; ++j) {
+            if(idConverter.find(nodesData[i][2+j]) == idConverter.end())
+                idConverter.insert(pair<int,int>(nodesData[i][2+j],newIds++));
+            neighbors[j+1] = idConverter.at(nodesData[i][2+j]);
+        }
+
+        graph[idConverter.at(id)] = neighbors;
+    }
+    return graph;
+}
+
 
 void readGraphFromFile(const char* path, int* originCell, int*** graph, u32* numOfNodes) {
-    // Todo
-//    printf("%s\n", path);
-    *graph = createPolyominoGraphImproved(atoi(path), originCell, numOfNodes);
+    printf("%s\n", path);
+
+    ifstream file(path);
+    if (file.is_open())
+    {
+        string graphMetadata;
+        string graphData;
+        getline(file, graphMetadata);
+        printf("Loading: %s\n", graphMetadata.c_str());
+        getline(file, graphData);
+        *numOfNodes = (u32)stoi(graphData);
+        getline(file, graphData);
+        *originCell = stoi(graphData);
+        printf("%d %d\n",*numOfNodes,*originCell);
+        int** nodesData = (int**)malloc(*numOfNodes * sizeof(int*));
+        string line;
+        string number;
+        int id, numOfNeighbors;
+        for (u32 i = 0; i < *numOfNodes; ++i){
+            stringstream ss;
+            getline(file, line);
+            ss << line;
+
+            ss >> number;
+            id = stoi(number);
+            ss >> number;
+            numOfNeighbors = stoi(number);
+            nodesData[i] = (int*)malloc((1 + numOfNeighbors) * sizeof(int));
+            nodesData[i][0] = id;
+            nodesData[i][1] = numOfNeighbors;
+            for (int j = 0; j < numOfNeighbors; ++j) {
+                ss >> number;
+                nodesData[i][j+2] = stoi(number);
+            }
+        }
+        printf("Done Reading File, Extracting Graph From Data\n");
+        int** nodes = extractGraph(nodesData, originCell, numOfNodes);
+        *graph = nodes;
+        printf("Done Extracting File\n");
+        for (u32 i = 0; i < *numOfNodes; ++i)
+            free(nodesData[i]);
+        free(nodesData);
+    } else {
+        printf("File %s didn't load\n", path);
+    }
+    file.close();
 }
 
 
 // old header:    void deleteGraph(int** nodes, int originCell, int neighboursSize) {
-void deleteGraph(int** nodes, u32 numOfNodes) {
-//    int* neighboursGlobal = nodes[originCell] - (neighboursSize+1)*originCell;
-//    free(nodes);
-//    free(neighboursGlobal);
-
+void deleteGraph(int** graph, u32 numOfNodes) {
     for (u32 i = 0; i < numOfNodes; i++)
-        free(nodes[i]);
-    free(nodes);
+        free(graph[i]);
+    free(graph);
 }
 
 
