@@ -191,7 +191,7 @@ void createPolyominoGraphFile(const char* path, int size){
     int** graph = createPolyominoGraphImproved(size, &originCell, &numOfNodes);
     file << numOfNodes << endl;
     file << originCell << endl;
-    for (int i = 0; i < numOfNodes; ++i) {
+    for (u32 i = 0; i < numOfNodes; ++i) {
         file << i << " " << graph[i][0];
         for (int j = 0; j < graph[i][0]; ++j) {
             file << " " << graph[i][1+j];
@@ -225,6 +225,7 @@ int** extractGraph(int** nodesData, int* originCell, u32* numOfNodes){
 
         graph[idConverter.at(id)] = neighbors;
     }
+    *originCell = idConverter.at(*originCell);
     return graph;
 }
 

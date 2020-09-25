@@ -13,8 +13,9 @@ try:
 except:
 	approx_num_of_jobs = 10
 
-jobs_dir = "C:/Users/tomhe/OneDrive - Technion/Documents/CountingPolyominoes/Jobs/"
+jobs_dir = "../Jobs/"
+graphs_dir = "../Graphs/"
 
-print(jobs_creator(str(steps), steps, approx_num_of_jobs, jobs_dir + "my" + str(steps) + "Job"))
+#print(jobs_creator(str(steps), steps, approx_num_of_jobs, jobs_dir + "my" + str(steps) + "Job"))
 
-# print(can_i_finish_it(str(steps), steps))
+print(can_i_finish_it(graphs_dir + "Polyominoes.txt", steps))
