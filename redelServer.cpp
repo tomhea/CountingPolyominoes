@@ -11,15 +11,16 @@
 /// \param untriedSize - number of elements in the untried set.
 /// \return - number of sub-graphs
 u64 recCounter(int** nodes, u32 steps, bool* nodesFound, int* untriedSet, int* untriedSetEnd) {
-    int node = *(untriedSet++);   // pop node from untried set
+    int node = *(untriedSet);   // pop node from untried set
     int* neighbours = nodes[node];
     int numOfNeighbours = neighbours[0];
 
     if (steps == 2) {   // recursion stop condition
-        untriedSetEnd += numOfNeighbours;
-        for (int i = 1; i <= numOfNeighbours; i++)
-            untriedSetEnd -= nodesFound[neighbours[i]];
-        return 1 + untriedSetEnd-untriedSet;
+        // [3] - count the number of neighbours, because that's the number of polyominoes of size initSteps that could be constructed by the current (p-1)-polyomino
+        u64 counted = (untriedSetEnd-untriedSet) - 1;     // count all neighbours in untriedSet (without itself, unless COUNT_STEP_BELOW is on)
+        for (int i = 1; i <= neighbours[0]; i++)    // count the current node neighbours, if they weren't been found yet.
+            counted += !nodesFound[neighbours[i]];          // if neighbours[i] doesn't exists, it points to originCell, which was surely found.
+        return counted;
     }
 
     int* oldUntriedSetEnd = untriedSetEnd;
@@ -31,10 +32,10 @@ u64 recCounter(int** nodes, u32 steps, bool* nodesFound, int* untriedSet, int* u
         }
     }
 
-    u64 counted = 1;        // count current sub-graph.
-    while(untriedSet != untriedSetEnd) {
-        counted += recCounter(nodes, steps - 1, nodesFound, untriedSet++, untriedSetEnd);
-        if (counted > COUNTER_THRESHOLD) throw recTimeout();    // if passed the threshold - QUIT.
+    u64 counted = 0;        // count current sub-graph.
+    while(++untriedSet != untriedSetEnd) {
+        counted += recCounter(nodes, steps - 1, nodesFound, untriedSet, untriedSetEnd);
+        if (counted >= COUNTER_THRESHOLD) return counted;    // if passed the threshold - QUIT (recursively returns with value larger than COUNTER_THRESHOLD).
     }
 
     while(oldUntriedSetEnd != untriedSetEnd)    // remove all new neighbours from found set.
@@ -51,21 +52,19 @@ u64 recCounter(int** nodes, u32 steps, bool* nodesFound, int* untriedSet, int* u
 /// \param originCell - starting node for any sub-graph.
 /// \return - number of sub-graphs of 'nodes' contains at most 'steps' nodes, including 'originCell'.
 bool simpleTimedCountSubGraphs(int** nodes, u32 steps, u32 numOfNodes, int originCell, u64* count) {
-    if (steps <= 1) return steps;
+    if (steps <= 1) {
+        *count = steps;
+        return true;
+    }
 
     bool* nodesFound = (bool*)calloc(numOfNodes, sizeof(bool));
     int* untriedSet = (int*)malloc(numOfNodes * sizeof(int));
     nodesFound[originCell] = true;
     untriedSet[0] = originCell;
 
-    bool success;
-    try {
-        *count = recCounter(nodes, steps, nodesFound, untriedSet, untriedSet + 1);
-        success = true;
-    } catch (recTimeout& e) {
-        *count = 0;
-        success = false;
-    }
+    *count = recCounter(nodes, steps, nodesFound, untriedSet, untriedSet + 1);
+    bool success = *count < COUNTER_THRESHOLD;      // if not passed the threshold
+    if (!success) *count = 0;
 
     free(nodesFound);
     free(untriedSet);
@@ -149,7 +148,6 @@ bool canIFinishIt(const char* graphFilePath, u32 steps, u64* result) {
 }
 
 u32 decideWhatLevel(int** graph, int originCell, u32 numOfNodes, u64 approxNumOfJobs, u64* numOfJobs) {
-    // calculate
     u32 steps = 1;
     u64 lastResults=-1, results=-1;
     while (true) {
@@ -215,6 +213,4 @@ int jobsCreator(const char* graphFilePath, u32 steps, int approxNumOfJobs, const
     assert(jobsCreated == numOfJobs);
     deleteGraph(graph, numOfNodes);
     return jobsCreated;
-
-    // return 0;
 }

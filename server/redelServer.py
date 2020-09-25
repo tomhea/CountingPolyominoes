@@ -4,8 +4,11 @@ import os
 
 
 # os.chdir(r"C:\FastAccess\py-cpp_integration_project".replace('\\', '/')))
-os.add_dll_directory(r"C:\Users\tomhe\OneDrive - Technion\Documents\CountingPolyominoes")
-libname = str(pathlib.Path().absolute() / "libRedelServer.dll").replace('\\', '/')
+dlldir = "C:/Users/tomhe/OneDrive - Technion/Documents/CountingPolyominoes/cmake-build-release"
+# os.add_dll_directory(dlldir)
+# os.chdir(dlldir)
+libname = str(dlldir + "/libRedelServer.dll")
+# libname = str(dlldir + "/libTry.dll")
 # libname = str(r"C:\FastAccess\py-cpp_integration_project\libRedelServer.dll").replace('\\', '/')
 print(libname)
 redel_server_lib = cdll.LoadLibrary(libname)
@@ -26,4 +29,3 @@ def jobs_creator(graph_file_path : str, steps : int, approx_num_of_jobs : int, j
 	num_of_jobs = redel_server_lib.jobsCreator(cpp_str(graph_file_path), steps, approx_num_of_jobs, cpp_str(job_base_path))
 	return num_of_jobs
 
-print(can_i_finish_it("", 7))

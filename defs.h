@@ -8,14 +8,12 @@
 #include <string>
 #include <cassert>
 #include <unistd.h>
-#include <exception>
 
 typedef unsigned int u32;
 typedef unsigned long long u64;
 
 using namespace std;
 
-class recTimeout : public exception {};
 
 #define TEMP_FILE_SUFFIX "_temp"
 
@@ -28,9 +26,8 @@ class recTimeout : public exception {};
 // Polyominoes       // https://oeis.org/A001168/b001168.txt
 // Polycubes         // https://oeis.org/A001931/b001931.txt
 
-//#define CLIENT_BACKUP true
-
 
 // TODO: change to cpp initializations in all file
+// TODO: add functions commentary
 
 #endif //COUNTINGPOLYOMINOES_DEFS_H

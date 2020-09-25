@@ -177,8 +177,8 @@ int** createPolyominoGraphImproved(int p, int* originCellPtr, u32* nPtr) {
 
 void readGraphFromFile(const char* path, int* originCell, int*** graph, u32* numOfNodes) {
     // Todo
-    printf("%s\n", path);
-    *graph = createPolyominoGraphImproved(10, originCell, numOfNodes);
+//    printf("%s\n", path);
+    *graph = createPolyominoGraphImproved(atoi(path), originCell, numOfNodes);
 }
 
 
