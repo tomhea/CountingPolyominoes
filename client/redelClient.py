@@ -2,9 +2,10 @@ from ctypes import *
 import pathlib
 
 
-dlldir = "C:/Users/tomhe/OneDrive - Technion/Documents/CountingPolyominoes/cmake-build-release"
+# dlldir = "C:/Users/tomhe/OneDrive - Technion/Documents/CountingPolyominoes/cmake-build-release"
+dlldir = "./"
 # libname = str(pathlib.Path().absolute() / "cmake-build-debug" / "libRedelClient.dll").replace('\\', '/')
-libname = dlldir + "/libRedelClient.dll"
+libname = dlldir + "libRedelClient.so"
 print(libname)
 redel_client_lib = cdll.LoadLibrary(libname)
 

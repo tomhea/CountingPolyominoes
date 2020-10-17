@@ -6,7 +6,7 @@
 #include <ctime>
 #include <cstring>
 #include <string>
-#include <cassert>
+//#include <cassert>
 #include <unistd.h>
 
 typedef unsigned int u32;

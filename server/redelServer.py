@@ -3,13 +3,7 @@ import pathlib
 import os
 
 
-# os.chdir(r"C:\FastAccess\py-cpp_integration_project".replace('\\', '/')))
-dlldir = "C:/Users/tomhe/OneDrive - Technion/Documents/CountingPolyominoes/cmake-build-release"
-# os.add_dll_directory(dlldir)
-# os.chdir(dlldir)
-libname = str(dlldir + "/libRedelServer.dll")
-# libname = str(dlldir + "/libTry.dll")
-# libname = str(r"C:\FastAccess\py-cpp_integration_project\libRedelServer.dll").replace('\\', '/')
+libname = str("./libRedelServer.so")
 print(libname)
 redel_server_lib = cdll.LoadLibrary(libname)
 
@@ -21,7 +15,9 @@ def cpp_str(s):
 def can_i_finish_it(graph_file_path : str, steps : int) -> (bool, int):
 	result = c_ulonglong()
 	redel_server_lib.canIFinishIt.restype = c_bool
+	print("Statring canIFinishIt")
 	can_i = redel_server_lib.canIFinishIt(cpp_str(graph_file_path), steps, byref(result))
+	print("Ended canIFinishIt")
 	return (can_i, result.value)
 
 # int mainServer(const char* graphFilePath, u32 steps, int approxNumOfJobs, const char* jobBasePath);
