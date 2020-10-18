@@ -1,14 +1,17 @@
 from os import listdir
 from datetime import datetime, timedelta
 
+global db_m
+
 
 class JobStatus:
-	def __init__(self, file_name : str):
+	def __init__(self, file_name : str, jobGroup=None : JobGroup):
 		self.file_name = file_name
 		self.active = False
 		self.active_since = datetime.now()
 		self.done = False
 		self.result = -1
+		self.jobGroup = jobGroup
 
 	def activate(self):
 		self.active = True
@@ -28,10 +31,10 @@ class JobGroup:
 		self.graph = graph
 		
 		self.jobs_folder = jobs_folder
-		self.all_jobs = [JobStatus(file_name) for file_name in listdir(self.jobs_folder)]
+		self.all_jobs = [db_m.register_job(file_name, self) for file_name in listdir(self.jobs_folder)]
 		self.remaining_jobs = self.all_jobs[:]
 		self.active_jobs = []
-		self.name2job = {job.file_name:job for job in self.all_jobs}
+		# self.name2job = {job.file_name:job for job in self.all_jobs}
 
 		self.totalNumOfJobs = len(self.jobs)
 		self.jobs_done = 0
@@ -45,74 +48,87 @@ class JobGroup:
 	def is_completed(self):
 		return self.jobs_done == self.totalNumOfJobs
 
-	def get_result(self):
-		if self.jobs_done != self.totalNumOfJobs:
-			return -1
-		return sum(jobs_status.values())
+	# def get_result(self):
+	# 	# if self.jobs_done != self.totalNumOfJobs:
+	# 	# 	return -1
+	# 	return sum(job.result for job in self.all_jobs if job.done)
 
 	def get_next_job(self):
 		if self.remaining_jobs == []:
 			return None
-		job = self.remaining_jobs.pop()
-		job.activate()
-		self.active_jobs.append(job)
-		return job.file_name
+		job_id = self.remaining_jobs.pop()
+		db_m.job_activate(job_id)
+		self.active_jobs.append(job_id)
+		return job_id
 
-	def post_result(self, file_name, result):
-		job = name2job[file_name]
-		job.post_result(result)
-		self.active_jobs.remove(job)
+	def post_result(self, job_id : int, result : int):
+		db_m.job_post_result(job_id, result)
+		self.active_jobs.remove(job_id)
 		self.jobs_done += 1
 
 	def get_long_waiting_jobs(self, minutes_wait_time : int, deactivate = False):
-		long_waiting_jobs = [job for job in self.active_jobs if job.active_since + timedelta(minutes=minutes_wait_time) < datetime.now()]
+		long_waiting_jobs = [job_id for job_id in self.active_jobs if db_m.job_live_longer_than(job_id, minutes_wait_time)]
 		if deactivate:
-			for job in long_waiting_jobs:
-				job.deactivate()
-				self.active_jobs.remove(job)
-				self.remaining_jobs.append(job)
+			for job_id in long_waiting_jobs:
+				db_m.deactivate(job_id)
+				self.active_jobs.remove(job_id)
+				self.remaining_jobs.append(job_id)
 		return long_waiting_jobs
 
 
 class jobManager:
 	def __init__(self):
-		self.JobGroups = []
-		self.active_jobs = {}	# file_name -> group
+		self.JobGroups = []		# jobGroup names
+		# self.name2jobGroup = {}
+		self.active_jobs = {}	# job_id -> jobGroup name
 		self.completed_JobGroups = []
 
-	def add_JobGroup(self, name : str, graph : str, jobs_folder : str):
-		self.JobGroups.append(JobGroup(name, graph, jobs_folder))
+	def add_JobGroup(self, name : str):
+		# jobGroup = db_m.get_jobGroup(name)
+		# self.name2jobGroup[name] = jobGroup
+		self.JobGroups.append(name)
 
-	def get_next_job(self, JobGroup_name=None : str):
+	def get_next_job(self, jobGroup_name=None : str):
 		if self.JobGroups == []:
 			return None
 
-		if JobGroup_name:
-			for jobGroup in self.JobGroups:
-				if jobGroup.name == JobGroup_name:
-					job_file = jobGroup.get_next_job()
-					if job_file != None:
-						active_jobs[job_file] = jobGroup
-						return job_file, jobGroup.get_graph()
-					return None
-			return None
+		if jobGroup_name:
+			if jobGroup_name not in jobGroups:
+				return None
+			job_id = db_m.get_next_job(jobGroup_name)
+			graph = db_m.get_graph(jobGroup_name)
+			if None in (job_id, graph):
+				return None
+			return (job_id, graph)
 
-		for jobGroup in self.JobGroups:
-			job_file = jobGroup.get_next_job()
-			if job_file != None:
-				active_jobs[job_file] = jobGroup
-				return job_file, jobGroup.get_graph()
+
+			# for jobGroup in self.JobGroups:
+			# 	if jobGroup.name == jobGroup_name:
+			# 		job_file = jobGroup.get_next_job()
+			# 		if job_file != None:
+			# 			active_jobs[job_file] = jobGroup
+			# 			return job_file, jobGroup.get_graph()
+			# 		return None
+			# return None
+
+		for jobGroup_name in self.JobGroups:
+			job_id = db_m.get_next_job(jobGroup_name)
+			graph = db_m.get_graph(jobGroup_name)
+			if None in (job_id, graph):
+				continue
+			self.active_jobs[job_id] = jobGroup_name
+			return (job_id, graph)
 		return None
 
-	def post_result(self, job_file : str, result : int):
-		jobGroup = active_jobs.pop(job_file, default=None)
-		if jobGroup == None:
+	def post_result(self, job_id : str, result : int):
+		jobGroup_name = self.active_jobs.pop(job_id, default=None)
+		if jobGroup_name == None:
 			return False, None
 
-		jobGroup.post_result(job_file, result)
-		if jobGroup.is_completed():
-			self.jobGroups.remove(jobGroup)
-			result = (jobGroup.name, jobGroup.get_result)
-			self.completed_JobGroups.append(result)
+		db_m.post_result(jobGroup_name, job_id, result)
+		# jobGroup.post_result(job_file, result)
+		if db_m.is_completed(jobGroup_name):
+			self.jobGroups.remove(jobGroup_name)
+			self.completed_JobGroups[jobGroup_name](db_m.get_result(jobGroup_name))
 			return True, result
 		return True, None

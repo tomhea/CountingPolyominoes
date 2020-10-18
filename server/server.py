@@ -27,12 +27,13 @@ GET_JOB = "Get"
 POST_RES = "Post"
 GET_GRAPH = "Graph"
 
-CREATE_JOBS = "Create"	# + graph_file_path : str, steps : int, approx_num_of_jobs : int, job_base_path : str, (name : str to be added to DB)
-START_JOBS = "Start"	# + JobGroup name;    folder and graph_path are inferred from DB
-STOP_JOBS = "Stop"		# + JobGroup name
-HELP = "Help" 			# print every command possible
-GET_PERCENTAGE = "Percentage"	# + JobGroup name
-GET_LAST_RESULTS = "Results"	# + num of results wanted
+CREATE_JOBS = ("create",)	# + graph_file_path : str, steps : int, approx_num_of_jobs : int, job_base_path : str, (name : str to be added to DB)
+START_JOBS = ("start",)		# + JobGroup name;    folder and graph_path are inferred from DB
+STOP_JOBS = ("stop",)		# + JobGroup name
+HELP = ("help", 'h')		# print every command possible
+GET_PERCENTAGE = ("percentage", "%")	# + JobGroup name
+GET_LATEST_RESULTS = ("results", "res")	# + jobGroup name
+PRIORITY = ("priority", "prio")		#   ( + jobGroup name )
 
 jobs:
 	polyominoes:
@@ -51,17 +52,41 @@ def listen_on(ip : str, port : int):
 
 
 def handle_request(request : str):
-	if   request.startswith(CREATE_JOBS):
+	command = request.split(' ')[0].lower()
+	if   command in CREATE_JOBS:
 		pass
-	elif request.startswith(START_JOBS):
+	elif command in START_JOBS:
 		pass
-	elif request.startswith(STOP_JOBS):
+	elif command in STOP_JOBS:
 		pass
-	elif request.startswith(HELP):
+	elif command in HELP:
+		print("""Welcome to SubgraphCounter Server-App!
+			Commands:
+				Create graph steps num path name
+					- Creates (About) 'num' jobs ([path]_0, [path]_1, ...) for calculating
+					  the number of subgraphs of 'graph' with 'steps' connected nodes.
+					  The created jobs are registered in the server's database under 'name'.
+				Start name
+					- start (or continue) working on the jobs registered under 'name'.
+				Stop name
+					- stop (pause) working on the jobs registered under 'name'.
+				Help [H]
+					- Present all possible commands, with explanation.
+				Percentage [%] name
+					- Prints the percentage (%) of the completed jobs registered under 'name'.
+				Results [Res] name
+					- Prints the current total results of the jobs registered under 'name'.
+				Priority [Prio] (name, index)
+					- If no arguments given - prints all active job groups by their priority.
+					  Else - moves jobs registered under 'name' to priority 'index'.
+			""")
 		pass
-	elif request.startswith(GET_PERCENTAGE):
+	elif command in GET_PERCENTAGE:
+
 		pass
-	elif request.startswith(GET_LAST_RESULTS):
+	elif command in GET_LAST_RESULTS:
+		pass
+	elif command in PRIORITY:
 		pass
 
 
