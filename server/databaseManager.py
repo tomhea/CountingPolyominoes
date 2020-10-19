@@ -1,4 +1,4 @@
-import jobManager
+from jobManager import JobStatus, JobGroup, JobManager
 
 
 class DatabaseManager:
@@ -10,7 +10,7 @@ class DatabaseManager:
 
 	def register_job(self, file_name : str, jobGroup : JobGroup):
 		id = self.curr_id
-		self.jobs[id] = jobStatus(file_name, jobGroup)
+		self.jobs[id] = JobStatus(file_name, jobGroup)
 		self.curr_id += 1
 		return id
 
@@ -30,7 +30,7 @@ class DatabaseManager:
 		if job_id not in self.jobs:
 			return None
 		job = self.jobs[job_id]
-		if !job.done and zero_if_not_done:
+		if not job.done and zero_if_not_done:
 			return 0
 		return job.result
 
@@ -77,9 +77,9 @@ class DatabaseManager:
 		# return jobGroup.get_result()
 
 	def post_result(self, jobGroup_name : str, job_id : int, result : int):
-		if name not in self.jobGroups:
+		if jobGroup_name not in self.jobGroups:
 			return None
-		jobGroup = self.jobGroups[name]
+		jobGroup = self.jobGroups[jobGroup_name]
 		jobGroup.post_result(job_id, result)
 
 

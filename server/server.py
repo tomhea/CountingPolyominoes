@@ -3,25 +3,9 @@ from sys import argv, stdin
 from select import select
 from socket import socket
 
-from databaseManager import *
-from jobManager import *
+from databaseManager import DatabaseManager
+from jobManager import JobManager
 
-# try:
-# 	steps = int(argv[1])
-# except:
-# 	steps = 5
-
-# try: 
-# 	approx_num_of_jobs = int(argv[2])
-# except:
-# 	approx_num_of_jobs = 10
-
-# jobs_dir = "Jobs/"
-# graphs_dir = "Graphs/"
-
-# print(jobs_creator(graphs_dir + "Polyominoes.txt", steps, approx_num_of_jobs, jobs_dir + "my" + str(steps) + "Job"))
-
-# print(can_i_finish_it(graphs_dir + "Polyominoes.txt", steps))
 
 GET_JOB = "Get"
 POST_RES = "Post"
@@ -34,14 +18,6 @@ HELP = ("help", 'h')		# print every command possible
 GET_PERCENTAGE = ("percentage", "%")	# + JobGroup name
 GET_LATEST_RESULTS = ("results", "res")	# + jobGroup name
 PRIORITY = ("priority", "prio")		#   ( + jobGroup name )
-
-jobs:
-	polyominoes:
-		5:
-			jobs
-	polys:
-		5:
-			jfwi
 
 
 def listen_on(ip : str, port : int):
@@ -84,7 +60,7 @@ def handle_request(request : str):
 	elif command in GET_PERCENTAGE:
 
 		pass
-	elif command in GET_LAST_RESULTS:
+	elif command in GET_LATEST_RESULTS:
 		pass
 	elif command in PRIORITY:
 		pass
@@ -101,16 +77,16 @@ def handle_client(clients, c : socket, addr):
 		if   request.startswith(GET_JOB):
 			job = job_m.get_new_job()
 			if job == None:
-				pass
-			job_file_name, graph_file_name = job
-					# id 4456: path/file
-			# c.send(graph_file_name)
-			# c.send(job_file_name)
+				c.send("None".encode())
+				return
+			job_id, graph_file_name = job
+			c.send(graph_file_name)
+			c.send(job_id)
 			# c.send(job_file)
 			pass
 		elif request.startswith(POST_RES):
-			_, file_name, result = request.split(' ')
-			job_m.post_result(file_name, int(result))
+			_, job_id, result = request.split(' ')
+			job_m.post_result(job_id, int(result))
 		elif request.startswith(GET_GRAPH):
 			_, graph_file_name = request.split(' ')
 			# c.send(graph_file)

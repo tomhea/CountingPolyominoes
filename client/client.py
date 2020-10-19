@@ -19,27 +19,27 @@ def is_graph_available(graph_file_name : str):
 	pass
 
 def compute_jobs_thread(amount : int):
-	global socket
+	global server_socket
 	global computing_thread
 
 	for i in range(amount):
 		if getattr(computing_thread, "do_run", False):
 			break
 
-		socket.send(GET_JOB.encode())
-		graph_file_name = socket.recv(1024).decode()
-		job_file_name = socket.recv(1024).decode()
+		server_socket.send(GET_JOB.encode())
+		graph_file_name = server_socket.recv(1024).decode()
+		job_file_name = server_socket.recv(1024).decode()
 		#TODO get job file content
 
 		if not is_graph_available(graph_file_name):
 			msg = f"{GET_GRAPH} {graph_file_name}"
-			socket.send(msg.encode())
+			server_socket.send(msg.encode())
 			#TODO get graph file content
 
 		counted = execute_job(graphs_dir + graph_file_name, jobs_dir + job_file_name)
 		msg = f'{POST_RES} {job_file_name} {counted}'
 		print(msg)
-		socket.send(msg.encode())
+		server_socket.send(msg.encode())
 
 	print(f"Finished computing {amount} jobs.")
 
@@ -51,7 +51,7 @@ def connect_to(ip, port):
 
 
 def handle_request(request : str):
-	global socket
+	global server_socket
 	global computing_thread
 
 	command = request.split(' ')[0].lower()
@@ -71,7 +71,7 @@ def handle_request(request : str):
 		if computing_thread:
 			computing_thread.do_run = False
 			computing_thread.join()
-		socket.close()
+		server_socket.close()
 		exit()
 	elif command in HELP:
 		print("""Welcome to SubgraphCounter Client-App!
@@ -80,9 +80,9 @@ def handle_request(request : str):
 
 
 def main():
-	global socket
+	global server_socket
 	global computing_thread
-	socket = connect_to('127.0.0.1', 36446)
+	server_socket = connect_to('127.0.0.1', 36446)
 	computing_thread = None
 	timeout = 5
 	while True:

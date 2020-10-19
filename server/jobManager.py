@@ -5,13 +5,12 @@ global db_m
 
 
 class JobStatus:
-	def __init__(self, file_name : str, jobGroup=None : JobGroup):
+	def __init__(self, file_name : str):
 		self.file_name = file_name
 		self.active = False
 		self.active_since = datetime.now()
 		self.done = False
 		self.result = -1
-		self.jobGroup = jobGroup
 
 	def activate(self):
 		self.active = True
@@ -26,12 +25,12 @@ class JobStatus:
 
 
 class JobGroup:
-	def __init__(self, name : str, graph : str, jobs_folder : str, doubleCheck = False : bool):
+	def __init__(self, name : str, graph : str, jobs_folder : str, doubleCheck : bool = False):
 		self.name = name
 		self.graph = graph
 		
 		self.jobs_folder = jobs_folder
-		self.all_jobs = [db_m.register_job(file_name, self) for file_name in listdir(self.jobs_folder)]
+		self.all_jobs = [db_m.register_job(file_name) for file_name in listdir(self.jobs_folder)]
 		self.remaining_jobs = self.all_jobs[:]
 		self.active_jobs = []
 		# self.name2job = {job.file_name:job for job in self.all_jobs}
@@ -76,7 +75,7 @@ class JobGroup:
 		return long_waiting_jobs
 
 
-class jobManager:
+class JobManager:
 	def __init__(self):
 		self.JobGroups = []		# jobGroup names
 		# self.name2jobGroup = {}
@@ -88,12 +87,12 @@ class jobManager:
 		# self.name2jobGroup[name] = jobGroup
 		self.JobGroups.append(name)
 
-	def get_next_job(self, jobGroup_name=None : str):
+	def get_next_job(self, jobGroup_name : str = None):
 		if self.JobGroups == []:
 			return None
 
 		if jobGroup_name:
-			if jobGroup_name not in jobGroups:
+			if jobGroup_name not in self.jobGroups:
 				return None
 			job_id = db_m.get_next_job(jobGroup_name)
 			graph = db_m.get_graph(jobGroup_name)
