@@ -98,6 +98,7 @@ def handle_client(clients, c : socket, addr):
 
 def main():
 	global job_m, db_m
+	..
 	job_m = JobManager()
 	db_m = DatabaseManager()
 
@@ -115,7 +116,7 @@ def main():
 				handle_request(input())
 			else:
 				handle_client(clients, c, socket2addr[c])
-
+		transaction.commit()
 
 if __name__ == '__main__':
 	main()
