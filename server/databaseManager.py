@@ -20,6 +20,7 @@ class MyZODB(object):
 class DatabaseManager:
 	def __init__(self):
 		self.jobsDB = MyZODB('./db/jobs.fs')				# id   -> jobStatus
+		self.graphsDB = MyZODB('./db/graphs.fs')			# name -> graph_path
 		self.jobGroupsDB = MyZODB('./db/jobGroups.fs')		# name -> jobGroup
 		self.jobManagerDB = MyZODB('./db/jobManager.fs')	# self is jobManager
 
@@ -28,6 +29,12 @@ class DatabaseManager:
 
 	def get_jobStatus(self, job_id: int):
 		return self.jobsDB.dbroot[job_id]
+
+	def register_graph(self, graph_path : str, graph_name : str):
+		self.graphsDB.dbroot[graph_name] = graph_path
+
+	def get_graph(self, graph_name):
+		return self.graphsDB.dbroot[graph_name]
 
 	def register_jobGroup(self, jobGroup: JobGroup):
 		self.jobGroupsDB.dbroot[jobGroup.name] = jobGroup

@@ -2,16 +2,21 @@ from redelServer import *
 from sys import argv, stdin
 from select import select
 from socket import socket
+import os
 
 from databaseManager import DatabaseManager
 from jobManager import JobManager
 
+
+NO_JOB_FOUND = "None"
+JOB_FOUND = "Job"
 
 GET_JOB = "Get"
 POST_RES = "Post"
 GET_GRAPH = "Graph"
 
 CREATE_JOBS = ("create",)	# + graph_file_path : str, steps : int, approx_num_of_jobs : int, job_base_path : str, (name : str to be added to DB)
+ADD_GRAPH = ("graph",)		# + graph_file_path : str, (name : str to be added to DB)
 START_JOBS = ("start",)		# + JobGroup name;    folder and graph_path are inferred from DB
 STOP_JOBS = ("stop",)		# + JobGroup name
 HELP = ("help", 'h')		# print every command possible
@@ -27,9 +32,18 @@ def listen_on(ip : str, port : int):
 	return s
 
 
+def sendfile(s : socket, path : str):
+	file_size = os.path.getsize(path)
+	s.send(str(file_size).zfill(8).encode())
+	with open(path, 'rb') as f:
+		s.sendall(f.read())
+
+
 def handle_request(request : str):
 	command = request.split(' ')[0].lower()
 	if   command in CREATE_JOBS:
+		pass
+	elif command in ADD_GRAPH:
 		pass
 	elif command in START_JOBS:
 		pass
@@ -40,12 +54,14 @@ def handle_request(request : str):
 			Commands:
 				Create graph steps num path name
 					- Creates (About) 'num' jobs ([path]_0, [path]_1, ...) for calculating
-					  the number of subgraphs of 'graph' with 'steps' connected nodes.
+					  the number of subgraphs of the registered 'graph' with 'steps' connected nodes.
 					  The created jobs are registered in the server's database under 'name'.
+				Graph path name
+					- Register the graph in 'path' under 'name'.
 				Start name
-					- start (or continue) working on the jobs registered under 'name'.
+					- Start (or continue) working on the jobs registered under 'name'.
 				Stop name
-					- stop (pause) working on the jobs registered under 'name'.
+					- Stop (pause) working on the jobs registered under 'name'.
 				Help [H]
 					- Present all possible commands, with explanation.
 				Percentage [%] name
@@ -77,28 +93,30 @@ def handle_client(clients, c : socket, addr):
 		if   request.startswith(GET_JOB):
 			job = job_m.get_new_job()
 			if job == None:
-				c.send("None".encode())
+				c.send(NO_JOB_FOUND.encode())
 				return
-			job_id, graph_file_name = job
-			c.send(graph_file_name)
+			c.send(JOB_FOUND.encode())
+			job_id, job_file_path, graph_name = job
+			c.send(graph_name)
 			c.send(job_id)
-			# c.send(job_file)
+			sendfile(c, job_file_path)
 			pass
 		elif request.startswith(POST_RES):
 			_, job_id, result = request.split(' ')
 			job_m.post_result(job_id, int(result))
 		elif request.startswith(GET_GRAPH):
-			_, graph_file_name = request.split(' ')
-			# c.send(graph_file)
+			_, graph_name = request.split(' ')
+			graph_file_path = db_m.get_graph(graph_name)
+			sendfile(c, graph_file_path)
 			pass
 
 		# c.send(request.encode())
 		# print(request)
 
 
+
 def main():
 	global job_m, db_m
-	..
 	job_m = JobManager()
 	db_m = DatabaseManager()
 

@@ -2,7 +2,15 @@ from redelServer import jobs_creator
 from os import listdir
 from datetime import datetime, timedelta
 from persistent import Persistent
-global db_m
+from server import db_m
+
+
+def update(func):
+	def inner(*args, **kwargs):
+		self = args[0]
+		self._p_changed = True
+		return func(*args, **kwargs)
+	return inner
 
 
 class JobStatus(Persistent):
@@ -27,6 +35,7 @@ class JobStatus(Persistent):
 
 
 class JobGroup(Persistent):
+	@update
 	def __init__(self, name : str, graph : str, jobs_folder : str, curr_id : int, doubleCheck : bool = False):
 		self.name = name
 		self.graph = graph
@@ -66,6 +75,7 @@ class JobGroup(Persistent):
 	def get_result(self):
 		return sum(self._v_id2job[job_id].result for job_id in self.all_jobs if self._v_id2job[job_id].done)
 
+	@update
 	def get_next_job(self):
 		if self.remaining_jobs == set():
 			return None
@@ -75,6 +85,7 @@ class JobGroup(Persistent):
 		self.active_jobs.add(job_id)
 		return job
 
+	@update
 	def post_result(self, job_id : int, result : int):
 		self._v_id2job[job_id].post_result(result)
 		self.active_jobs.remove(job_id)
@@ -84,6 +95,7 @@ class JobGroup(Persistent):
 		return [job_id for job_id in self.active_jobs if \
 				self._v_id2job[job_id].active_since + timedelta(minutes=minutes_wait_time) < datetime.now()]
 
+	@update
 	def reschedule_long_waiting_jobs(self, minutes_wait_time : int):
 		long_waiting_jobs = self.get_long_waiting_jobs(minutes_wait_time)
 		for job_id in long_waiting_jobs:
@@ -108,13 +120,15 @@ class JobManager(Persistent):
 		db_m.register_jobGroup(jobGroup)
 		self.curr_id += num_of_jobs_created
 
+	@update
 	def add_jobGroup(self, name : str):
-		# jobGroup = db_m.get_jobGroup(name)
-		# self.name2jobGroup[name] = jobGroup
+		jobGroup = db_m.get_jobGroup(name)
+		self.name2jobGroup[name] = jobGroup
 		self.jobGroups.append(name)
 
+	@update
 	def get_next_job(self, name : str = None):
-		if self.jobGroups == []:
+		if not self.jobGroups:
 			return None
 
 		if name:
@@ -138,6 +152,7 @@ class JobManager(Persistent):
 			return job.id, job.file_name, graph
 		return None
 
+	@update
 	def post_result(self, job_id : str, result : int):
 		jobGroup_name = self.active_jobs.pop(job_id, default=None)
 		if jobGroup_name == None:
