@@ -165,7 +165,7 @@ class JobManager(Persistent):
 
 	@update
 	def post_result(self, job_id : str, result : int):
-		jobGroup_name = self.active_jobs.pop(job_id, default=None)
+		jobGroup_name = self.active_jobs.pop(job_id, None)
 		if jobGroup_name == None:
 			return False, None
 

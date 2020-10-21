@@ -26,27 +26,34 @@ jobs_dir = "./Jobs/"
 BUFFER_SIZE = 1024
 def sendfile(s : socket, path : str):
 	with open(path, 'rb') as f:
-		send(s, f.read())
+		send(s, f.read(), False)
 
 def recvfile(s : socket, path : str):
 	with open(path, 'wb') as f:
-		f.write(recv(s))
-	
-def send(s : socket, msg : str):
+		f.write(recv(s, False))
+
+def send(s : socket, msg : str, encode = True):
 	s.sendall(str(len(msg)).zfill(8).encode())
 	for start_chunk in range(0, len(msg), BUFFER_SIZE):
-		s.sendall(msg[start_chunk:start_chunk+BUFFER_SIZE])
-	s.sendall(msg.encode())
+		if encode:
+			s.sendall(msg[start_chunk:start_chunk + BUFFER_SIZE].encode())
+		else:
+			s.sendall(msg[start_chunk:start_chunk + BUFFER_SIZE])
 
-def recv(s : socket):
-	size = int(s.recv(8).decode())
-	msg = ""
+def recv(s : socket, decode = True):
+	meta_data = s.recv(8).decode()
+	if not meta_data:
+		return None
+	size = int(meta_data)
+	msg = b""
 	while len(msg) < size:
-		msg += s.recv(min(BUFFER_SIZE, size-len(msg))).decode()
+		msg += s.recv(min(BUFFER_SIZE, size - len(msg)))
+	if decode:
+		msg = msg.decode()
 	return msg
 
 
-def is_graph_available(graph_file_name : str):
+def is_graph_available(graph_name : str):
 	return os.path.isfile(graphs_dir + graph_name)
 
 def compute_jobs_thread():
@@ -66,14 +73,14 @@ def compute_jobs_thread():
 
 		graph_name = recv(server_socket)
 		job_id = int(recv(server_socket))
-		recvfile(server_socket, jobs_dir + job_id)
+		recvfile(server_socket, jobs_dir + str(job_id))
 
 		if not is_graph_available(graph_name):
 			msg = f"{GET_GRAPH} {graph_name}"
 			send(server_socket, msg)
 			recvfile(server_socket, graphs_dir + graph_name)
 
-		counted = execute_job(graphs_dir + graph_name, jobs_dir + job_id)
+		counted = execute_job(graphs_dir + graph_name, jobs_dir + str(job_id))
 		jobs_finished += 1
 		msg = f'{POST_RES} {job_id} {counted}'
 		print(msg)
@@ -99,7 +106,7 @@ def handle_request(request : str):
 			return
 		computing_thread = Thread(target = compute_jobs_thread)
 		computing_thread.start()
-	elif command in EXIT:
+	elif command in CLOSE_APP:
 		# later to be kill() ==> update job files ==> exit()
 		if computing_thread:
 			computing_thread.do_run = False

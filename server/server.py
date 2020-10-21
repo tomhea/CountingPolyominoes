@@ -22,23 +22,30 @@ def listen_on(ip : str, port : int):
 BUFFER_SIZE = 1024
 def sendfile(s : socket, path : str):
 	with open(path, 'rb') as f:
-		send(s, f.read())
+		send(s, f.read(), False)
 
 def recvfile(s : socket, path : str):
 	with open(path, 'wb') as f:
-		f.write(recv(s))
+		f.write(recv(s, False))
 
-def send(s : socket, msg : str):
+def send(s : socket, msg : str, encode = True):
 	s.sendall(str(len(msg)).zfill(8).encode())
 	for start_chunk in range(0, len(msg), BUFFER_SIZE):
-		s.sendall(msg[start_chunk:start_chunk+BUFFER_SIZE])
-	s.sendall(msg.encode())
+		if encode:
+			s.sendall(msg[start_chunk:start_chunk + BUFFER_SIZE].encode())
+		else:
+			s.sendall(msg[start_chunk:start_chunk + BUFFER_SIZE])
 
-def recv(s : socket):
-	size = int(s.recv(8).decode())
-	msg = ""
+def recv(s : socket, decode = True):
+	meta_data = s.recv(8).decode()
+	if not meta_data:
+		return None
+	size = int(meta_data)
+	msg = b""
 	while len(msg) < size:
-		msg += s.recv(min(BUFFER_SIZE, size-len(msg))).decode()
+		msg += s.recv(min(BUFFER_SIZE, size - len(msg)))
+	if decode:
+		msg = msg.decode()
 	return msg
 
 
@@ -117,7 +124,10 @@ Commands:
 	elif command in GET_PERCENTAGE:
 		pass
 	elif command in GET_LATEST_RESULTS:
-		pass
+		#TODO Exposing jobGroup, might want to find encapsulating solution
+		name = args[0]
+		res = defs.db_m.get_jobGroup(name).get_result()
+		print(f"Result of group {name}: {res}")
 	elif command in PRIORITY:
 		pass
 	elif command in CLOSE_APP:
