@@ -19,17 +19,37 @@ def listen_on(ip : str, port : int):
 	return s
 
 
+BUFFER_SIZE = 1024
 def sendfile(s : socket, path : str):
-	file_size = os.path.getsize(path)
-	s.send(str(file_size).zfill(8).encode())
 	with open(path, 'rb') as f:
-		s.sendall(f.read())
+		send(s, f.read())
+
+def recvfile(s : socket, path : str):
+	with open(path, 'wb') as f:
+		f.write(recv(s))
+
+def send(s : socket, msg : str):
+	s.sendall(str(len(msg)).zfill(8).encode())
+	for start_chunk in range(0, len(msg), BUFFER_SIZE):
+		s.sendall(msg[start_chunk:start_chunk+BUFFER_SIZE])
+	s.sendall(msg.encode())
+
+def recv(s : socket):
+	size = int(s.recv(8).decode())
+	msg = ""
+	while len(msg) < size:
+		msg += s.recv(min(BUFFER_SIZE, size-len(msg))).decode()
+	return msg
+
 
 
 def handle_request(request : str):
 	command, *args = request.split(' ')
 	command = command.lower()
 	if command in CREATE_JOBS:
+		if len(args) != 4:
+			print("Create takes exactly 4 arguments.")
+			return
 		graph_name, steps, approximate, name = args
 		if defs.db_m.get_jobGroup(name):
 			print("JobGroup already exists.")
@@ -53,31 +73,31 @@ def handle_request(request : str):
 		pass
 	elif command in HELP:
 		print("""Welcome to SubgraphCounter Server-App!
-			Commands:
-				Create graph steps num path name
-					- Creates (About) 'num' jobs ([path]_0, [path]_1, ...) for calculating
-					  the number of subgraphs of the registered 'graph' with 'steps' connected nodes.
-					  The created jobs are registered in the server's database under 'name'.
-				Graph path name
-					- Register the graph in 'path' under 'name'.
-				Start name
-					- Start (or continue) working on the jobs registered under 'name'.
-				Stop name
-					- Stop (pause) working on the jobs registered under 'name'.
-				Help [H]
-					- Present all possible commands, with explanation.
-				List (optional graph|group|queue)
-					- Prints data about groups and graphs, leave empty for all data, or filter by optinal.
-				Percentage [%] name
-					- Prints the percentage (%) of the completed jobs registered under 'name'.
-				Results [Res] name
-					- Prints the current total results of the jobs registered under 'name'.
-				Priority [Prio] (name, index)
-					- If no arguments given - prints all active job groups by their priority.
-					  Else - moves jobs registered under 'name' to priority 'index'.
-				Close
-					- Exits app, closes server and database 
-			""")
+Commands:
+	Create graph steps num path name
+		- Creates (About) 'num' jobs ([path]_0, [path]_1, ...) for calculating
+		  the number of subgraphs of the registered 'graph' with 'steps' connected nodes.
+		  The created jobs are registered in the server's database under 'name'.
+	Graph path name
+		- Register the graph in 'path' under 'name'.
+	Start name
+		- Start (or continue) working on the jobs registered under 'name'.
+	Stop name
+		- Stop (pause) working on the jobs registered under 'name'.
+	Help [H]
+		- Present all possible commands, with explanation.
+	List (optional graph|group|queue)
+		- Prints data about groups and graphs, leave empty for all data, or filter by optinal.
+	Percentage [%] name
+		- Prints the percentage (%) of the completed jobs registered under 'name'.
+	Results [Res] name
+		- Prints the current total results of the jobs registered under 'name'.
+	Priority [Prio] (name, index)
+		- If no arguments given - prints all active job groups by their priority.
+		  Else - moves jobs registered under 'name' to priority 'index'.
+	Close
+		- Exits app, closes server and database 
+""")
 	elif command in LIST_DATA:
 		data_type = None
 		if len(args) == 1:
@@ -112,33 +132,29 @@ def handle_request(request : str):
 		print(f"Failed! \"{command}\" is not a valid command.")
 
 def handle_client(c : socket, addr):
-	request = c.recv(1024).decode()
+	request, *args = recv(c).split(' ')
+
 	if request == CLOSE_CON:
 		clients.remove(c)
 		print('connection closed: ' + str(addr))
 	else:
-		if request.startswith(GET_JOB):
+		if request == GET_JOB and len(args) == 0:
 			job = defs.job_m.get_next_job()
 			if not job:
-				c.sendall(NO_JOB_FOUND.encode())
+				send(c, NO_JOB_FOUND)
 				return
-			c.sendall(JOB_FOUND.encode())
+			send(c, JOB_FOUND)
 			job_id, job_file_path, graph_name = job
-			c.sendall(graph_name.encode())
-			c.sendall(str(job_id).encode())
+			send(c, graph_name)
+			send(c, str(job_id))
 			sendfile(c, job_file_path)
-			pass
-		elif request.startswith(POST_RES):
-			_, job_id, result = request.split(' ')
-			defs.job_m.post_result(job_id, int(result))
-		elif request.startswith(GET_GRAPH):
-			_, graph_name = request.split(' ')
+		elif request == POST_RES and len(args) == 2:
+			job_id, result = args
+			defs.job_m.post_result(int(job_id), int(result))
+		elif request == GET_GRAPH and len(args) == 1:
+			graph_name = args[0]
 			graph_file_path = defs.db_m.get_graph(graph_name)
 			sendfile(c, graph_file_path)
-			pass
-
-		# c.send(request.encode())
-		# print(request)
 
 
 

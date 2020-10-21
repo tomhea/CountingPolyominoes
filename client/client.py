@@ -3,55 +3,83 @@ from sys import argv, stdin
 from select import select
 from socket import socket
 from threading import Thread
+import os.path
+from time import sleep
 
 NO_JOB_FOUND = "None"
 JOB_FOUND = "Job"
 
 RUN_COMPUTE = ("run",)
-STOP_COMPUTE = ("stop",)
 # CHECK_PROGRESS = ("progress", )
 HELP = ("help", 'h')		# print every command possible
-EXIT = ("exit",)
+CLOSE_APP = ("exit",'close','quit','q')
 
-GET_JOB = "Get"
-POST_RES = "Post"
-GET_GRAPH = "Graph"
-CLOSE_CON = "Close"
+GET_JOB = "GET"
+POST_RES = "POST"
+GET_GRAPH = "GRAPH"
+UPDATE_JOB = "UPDATE"
 
 graphs_dir = "./Graphs/"
 jobs_dir = "./Jobs/"
 
-def is_graph_available(graph_file_name : str):
-	pass
 
-def compute_jobs_thread(amount : int):
+BUFFER_SIZE = 1024
+def sendfile(s : socket, path : str):
+	with open(path, 'rb') as f:
+		send(s, f.read())
+
+def recvfile(s : socket, path : str):
+	with open(path, 'wb') as f:
+		f.write(recv(s))
+	
+def send(s : socket, msg : str):
+	s.sendall(str(len(msg)).zfill(8).encode())
+	for start_chunk in range(0, len(msg), BUFFER_SIZE):
+		s.sendall(msg[start_chunk:start_chunk+BUFFER_SIZE])
+	s.sendall(msg.encode())
+
+def recv(s : socket):
+	size = int(s.recv(8).decode())
+	msg = ""
+	while len(msg) < size:
+		msg += s.recv(min(BUFFER_SIZE, size-len(msg))).decode()
+	return msg
+
+
+def is_graph_available(graph_file_name : str):
+	return os.path.isfile(graphs_dir + graph_name)
+
+def compute_jobs_thread():
 	global server_socket
 	global computing_thread
 
-	for i in range(amount):
+	jobs_finished = 0
+	while True:
 		if getattr(computing_thread, "do_run", False):
 			break
 
-		server_socket.send(GET_JOB.encode())
-		response = server_socket.recv(1024).decode()
+		send(server_socket, GET_JOB)
+		response = recv(server_socket)
 		if response == NO_JOB_FOUND:
-			break
+			sleep(3)
+			continue
 
-		graph_name = server_socket.recv(1024).decode()
-		job_id = server_socket.recv(1024).decode()
-		#TODO get job file content
+		graph_name = recv(server_socket)
+		job_id = int(recv(server_socket))
+		recvfile(server_socket, jobs_dir + job_id)
 
 		if not is_graph_available(graph_name):
 			msg = f"{GET_GRAPH} {graph_name}"
-			server_socket.send(msg.encode())
-			#TODO get graph file content
+			send(server_socket, msg)
+			recvfile(server_socket, graphs_dir + graph_name)
 
 		counted = execute_job(graphs_dir + graph_name, jobs_dir + job_id)
+		jobs_finished += 1
 		msg = f'{POST_RES} {job_id} {counted}'
 		print(msg)
-		server_socket.send(msg.encode())
+		send(server_socket, msg)
 
-	print(f"Finished computing {amount} jobs.")
+	print(f"Finished computing {jobs_finished} jobs.")
 
 
 def connect_to(ip, port):
@@ -69,15 +97,10 @@ def handle_request(request : str):
 		if computing_thread:
 			print("Already computing.")
 			return
-		amount = int(request.split(' ')[1])
-		computing_thread = Thread(target = compute_jobs_thread, args = (amount,))
+		computing_thread = Thread(target = compute_jobs_thread)
 		computing_thread.start()
-	elif command in STOP_COMPUTE:
-		if not computing_thread:
-			print("No computing jobs to stop.")
-			return
-		computing_thread.do_run = False
 	elif command in EXIT:
+		# later to be kill() ==> update job files ==> exit()
 		if computing_thread:
 			computing_thread.do_run = False
 			computing_thread.join()
@@ -85,8 +108,8 @@ def handle_request(request : str):
 		exit()
 	elif command in HELP:
 		print("""Welcome to SubgraphCounter Client-App!
-			Commands:
-			""")
+Commands:
+""")
 
 
 def main():
@@ -94,14 +117,11 @@ def main():
 	global computing_thread
 	server_socket = connect_to('127.0.0.1', 36446)
 	computing_thread = None
-	timeout = 5
 	while True:
-		r,_,_ = select([stdin], [], [], timeout)
-		if computing_thread and not computing_thread.is_alive():
-			computing_thread.join()
-			computing_thread = None
-		if stdin in r:
-			handle_request(input())
+		handle_request(input())
+		# r,_,_ = select([stdin], [], [])
+		# if stdin in r:
+		# 	handle_request(input())
 
 
 if __name__ == '__main__':
