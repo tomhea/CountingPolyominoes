@@ -2,7 +2,7 @@ from redelServer import jobs_creator
 from os import listdir
 from datetime import datetime, timedelta
 from persistent import Persistent
-from server import db_m
+global db_m
 
 
 def update(func):
@@ -102,6 +102,16 @@ class JobGroup(Persistent):
 			self._v_id2job[job_id].activate()
 			self.remaining_jobs.add(job_id)
 
+# class GroupCreator(persistent):
+# 	def __init__(self):
+# 		self.curr_id = 0
+#
+# 	def create_jobGroup(self, graph_file_path : str, steps : int, approx_num_of_jobs : int, job_base_path : str, name : str, doubleCheck : bool = False):
+# 		num_of_jobs_created = jobs_creator(graph_file_path, steps, approx_num_of_jobs, job_base_path)
+# 		jobs_folder = '/'.join(job_base_path.split('/')[:-1])
+# 		jobGroup = JobGroup(name, graph_file_path, jobs_folder, self.curr_id, doubleCheck)
+# 		db_m.register_jobGroup(jobGroup)
+# 		self.curr_id += num_of_jobs_created
 
 class JobManager(Persistent):
 	def __init__(self):
@@ -113,9 +123,10 @@ class JobManager(Persistent):
 	def reload_dict(self):
 		self._v_name2jobGroup = {name: db_m.get_jobGroup(name) for name in self.jobGroups}
 
-	def create_jobGroup(self, graph_file_path : str, steps : int, approx_num_of_jobs : int, job_base_path : str, name : str, doubleCheck : bool = False):
+	#Todo: GroupCreator maybe? see above
+	def create_jobGroup(self, graph_file_path : str, steps : int, approx_num_of_jobs : int, jobs_folder : str, name : str, doubleCheck : bool = False):
+		job_base_path = f"{jobs_folder}{name}"
 		num_of_jobs_created = jobs_creator(graph_file_path, steps, approx_num_of_jobs, job_base_path)
-		jobs_folder = '/'.join(job_base_path.split('/')[:-1])
 		jobGroup = JobGroup(name, graph_file_path, jobs_folder, self.curr_id, doubleCheck)
 		db_m.register_jobGroup(jobGroup)
 		self.curr_id += num_of_jobs_created
@@ -123,8 +134,11 @@ class JobManager(Persistent):
 	@update
 	def add_jobGroup(self, name : str):
 		jobGroup = db_m.get_jobGroup(name)
+		if jobGroup.is_completed():
+			return False
 		self.name2jobGroup[name] = jobGroup
 		self.jobGroups.append(name)
+		return True
 
 	@update
 	def get_next_job(self, name : str = None):
@@ -165,3 +179,6 @@ class JobManager(Persistent):
 			del self._v_name2jobGroup[jobGroup_name]
 			return True, jobGroup.get_result()
 		return True, None
+
+	def get_queued_jobGroups(self):
+		return self.jobGroups

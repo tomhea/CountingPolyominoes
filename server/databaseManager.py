@@ -1,7 +1,6 @@
 from jobManager import JobStatus, JobGroup, JobManager
 
 from ZODB import FileStorage, DB
-import transaction
 
 
 class MyZODB(object):
@@ -23,6 +22,12 @@ class DatabaseManager:
 		self.graphsDB = MyZODB('./db/graphs.fs')			# name -> graph_path
 		self.jobGroupsDB = MyZODB('./db/jobGroups.fs')		# name -> jobGroup
 		self.jobManagerDB = MyZODB('./db/jobManager.fs')	# self is jobManager
+
+	def close(self):
+		self.jobsDB.close()
+		self.graphsDB.close()
+		self.jobGroupsDB.close()
+		self.jobManagerDB.close()
 
 	def register_jobStatus(self, jobStatus: JobStatus):
 		self.jobsDB.dbroot[jobStatus.job_id] = jobStatus
@@ -51,3 +56,15 @@ class DatabaseManager:
 		jobManager = self.jobManagerDB.dbroot['self']
 		jobManager.reload_dict()
 		return jobManager
+
+	def get_all_graphs(self):
+		graphs = {}
+		for graph_name, graph_path in self.graphsDB.dbroot.items():
+			graphs[graph_name] = graph_path
+		return graphs
+
+	def get_all_jobGroups(self):
+		groups = {}
+		for name, jobGroup in self.jobGroupsDB.dbroot.items():
+			groups[graph_name] = jobGroup
+		return groups

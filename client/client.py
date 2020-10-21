@@ -4,6 +4,8 @@ from select import select
 from socket import socket
 from threading import Thread
 
+NO_JOB_FOUND = "None"
+JOB_FOUND = "Job"
 
 RUN_COMPUTE = ("run",)
 STOP_COMPUTE = ("stop",)
@@ -14,6 +16,10 @@ EXIT = ("exit",)
 GET_JOB = "Get"
 POST_RES = "Post"
 GET_GRAPH = "Graph"
+CLOSE_CON = "Close"
+
+graphs_dir = "./Graphs/"
+jobs_dir = "./Jobs/"
 
 def is_graph_available(graph_file_name : str):
 	pass
@@ -27,17 +33,21 @@ def compute_jobs_thread(amount : int):
 			break
 
 		server_socket.send(GET_JOB.encode())
-		graph_file_name = server_socket.recv(1024).decode()
-		job_file_name = server_socket.recv(1024).decode()
+		response = server_socket.recv(1024).decode()
+		if response == NO_JOB_FOUND:
+			break
+
+		graph_name = server_socket.recv(1024).decode()
+		job_id = server_socket.recv(1024).decode()
 		#TODO get job file content
 
-		if not is_graph_available(graph_file_name):
-			msg = f"{GET_GRAPH} {graph_file_name}"
+		if not is_graph_available(graph_name):
+			msg = f"{GET_GRAPH} {graph_name}"
 			server_socket.send(msg.encode())
 			#TODO get graph file content
 
-		counted = execute_job(graphs_dir + graph_file_name, jobs_dir + job_file_name)
-		msg = f'{POST_RES} {job_file_name} {counted}'
+		counted = execute_job(graphs_dir + graph_name, jobs_dir + job_id)
+		msg = f'{POST_RES} {job_id} {counted}'
 		print(msg)
 		server_socket.send(msg.encode())
 
