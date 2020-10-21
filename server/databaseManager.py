@@ -30,22 +30,28 @@ class DatabaseManager:
 		self.jobManagerDB.close()
 
 	def register_jobStatus(self, jobStatus: JobStatus):
-		self.jobsDB.dbroot[jobStatus.job_id] = jobStatus
+		self.jobsDB.dbroot[jobStatus.id] = jobStatus
 
 	def get_jobStatus(self, job_id: int):
+		if job_id not in list(self.jobsDB.dbroot.keys()):
+			return None
 		return self.jobsDB.dbroot[job_id]
 
 	def register_graph(self, graph_path : str, graph_name : str):
 		self.graphsDB.dbroot[graph_name] = graph_path
 
 	def get_graph(self, graph_name):
+		if graph_name not in list(self.graphsDB.dbroot.keys()):
+			return None
 		return self.graphsDB.dbroot[graph_name]
 
 	def register_jobGroup(self, jobGroup: JobGroup):
 		self.jobGroupsDB.dbroot[jobGroup.name] = jobGroup
 
 	def get_jobGroup(self, name: str):
-		jobGroup = self.jobsDB.dbroot[name]
+		if name not in list(self.jobGroupsDB.dbroot.keys()):
+			return None
+		jobGroup = self.jobGroupsDB.dbroot[name]
 		jobGroup.reload_dict()
 		return jobGroup
 
@@ -53,6 +59,8 @@ class DatabaseManager:
 		self.jobManagerDB.dbroot['self'] = jobManager
 
 	def get_jobManager(self):
+		if 'self' not in list(self.jobManagerDB.dbroot.keys()):
+			return None
 		jobManager = self.jobManagerDB.dbroot['self']
 		jobManager.reload_dict()
 		return jobManager
@@ -66,5 +74,5 @@ class DatabaseManager:
 	def get_all_jobGroups(self):
 		groups = {}
 		for name, jobGroup in self.jobGroupsDB.dbroot.items():
-			groups[graph_name] = jobGroup
+			groups[name] = jobGroup
 		return groups

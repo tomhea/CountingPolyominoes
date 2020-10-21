@@ -2,8 +2,7 @@ from redelServer import jobs_creator
 from os import listdir
 from datetime import datetime, timedelta
 from persistent import Persistent
-global db_m
-
+import defs
 
 def update(func):
 	def inner(*args, **kwargs):
@@ -46,8 +45,8 @@ class JobGroup(Persistent):
 		self.remaining_jobs = set()
 		self._v_id2job = {}		# _v_ prefix volatiles the dict, so it's not saved in the db
 		for file_name in listdir(self.jobs_folder):
-			job = JobStatus(file_name, curr_id)
-			db_m.register_jobStatus(job)
+			job = JobStatus(self.jobs_folder+file_name, curr_id)
+			defs.db_m.register_jobStatus(job)
 
 			self.all_jobs.add(curr_id)
 			self.remaining_jobs.add(curr_id)
@@ -61,7 +60,7 @@ class JobGroup(Persistent):
 		self.jobs_done = 0
 
 	def reload_dict(self):
-		self._v_id2job = {job_id: db_m.get_jobStatus(job_id) for job_id in self.all_jobs}
+		self._v_id2job = {job_id: defs.db_m.get_jobStatus(job_id) for job_id in self.all_jobs}
 
 	def get_graph(self):
 		return self.graph
@@ -102,16 +101,6 @@ class JobGroup(Persistent):
 			self._v_id2job[job_id].activate()
 			self.remaining_jobs.add(job_id)
 
-# class GroupCreator(persistent):
-# 	def __init__(self):
-# 		self.curr_id = 0
-#
-# 	def create_jobGroup(self, graph_file_path : str, steps : int, approx_num_of_jobs : int, job_base_path : str, name : str, doubleCheck : bool = False):
-# 		num_of_jobs_created = jobs_creator(graph_file_path, steps, approx_num_of_jobs, job_base_path)
-# 		jobs_folder = '/'.join(job_base_path.split('/')[:-1])
-# 		jobGroup = JobGroup(name, graph_file_path, jobs_folder, self.curr_id, doubleCheck)
-# 		db_m.register_jobGroup(jobGroup)
-# 		self.curr_id += num_of_jobs_created
 
 class JobManager(Persistent):
 	def __init__(self):
@@ -121,22 +110,30 @@ class JobManager(Persistent):
 		self.curr_id = 0
 
 	def reload_dict(self):
-		self._v_name2jobGroup = {name: db_m.get_jobGroup(name) for name in self.jobGroups}
+		self._v_name2jobGroup = {name: defs.db_m.get_jobGroup(name) for name in self.jobGroups}
 
 	#Todo: GroupCreator maybe? see above
-	def create_jobGroup(self, graph_file_path : str, steps : int, approx_num_of_jobs : int, jobs_folder : str, name : str, doubleCheck : bool = False):
+	def create_jobGroup(self, graph_name : str, steps : int, approx_num_of_jobs : int, jobs_folder : str, name : str, doubleCheck : bool = False):
 		job_base_path = f"{jobs_folder}{name}"
+		graph_file_path = defs.db_m.get_graph(graph_name)
 		num_of_jobs_created = jobs_creator(graph_file_path, steps, approx_num_of_jobs, job_base_path)
-		jobGroup = JobGroup(name, graph_file_path, jobs_folder, self.curr_id, doubleCheck)
-		db_m.register_jobGroup(jobGroup)
+		jobGroup = JobGroup(name, graph_name, jobs_folder, self.curr_id, doubleCheck)
+		defs.db_m.register_jobGroup(jobGroup)
 		self.curr_id += num_of_jobs_created
 
 	@update
 	def add_jobGroup(self, name : str):
-		jobGroup = db_m.get_jobGroup(name)
-		if jobGroup.is_completed():
+		jobGroup = defs.db_m.get_jobGroup(name)
+		if not jobGroup:
+			print(f"Adding {name} failed! jobGroup is not found.")
 			return False
-		self.name2jobGroup[name] = jobGroup
+		if jobGroup.is_completed():
+			print(f"Adding {name} failed! jobGroup is completed.")
+			return False
+		if name in self.jobGroups:
+			print(f"Adding {name} failed! jobGroup is already queued.")
+			return False
+		self._v_name2jobGroup[name] = jobGroup
 		self.jobGroups.append(name)
 		return True
 

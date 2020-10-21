@@ -244,7 +244,7 @@ void readGraphFromFile(const char* path, int* originCell, int*** graph, u32* num
         *numOfNodes = (u32)stoi(graphData);
         getline(file, graphData);
         *originCell = stoi(graphData);
-        printf("%d %d\n",*numOfNodes,*originCell);
+        printf("Num of nodes: %d, origin cell: %d\n",*numOfNodes,*originCell);
         int** nodesData = (int**)malloc(*numOfNodes * sizeof(int*));
         string line;
         string number;

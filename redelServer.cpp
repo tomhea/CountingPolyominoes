@@ -213,7 +213,8 @@ u32 decideWhatLevel(int** graph, int originCell, u32 numOfNodes, u64 approxNumOf
         if (simpleTimedCountSubGraphs(graph, steps, numOfNodes, originCell, &results) == false) {
             *numOfJobs = lastResults;
             return steps-1;
-        } else if (results > approxNumOfJobs) {
+        }
+        if (results > approxNumOfJobs) {
             *numOfJobs = results;
             return steps;
         }
@@ -244,7 +245,6 @@ u64 recJobsCreatorWrapper(int** nodes, int originCell, u32 numOfNodes, u32 steps
     strcpy(path, jobBasePath);
     strcpy(tempPath, jobBasePath);
     strcat(tempPath, TEMP_FILE_SUFFIX);
-
     u64 jobsCreated = recJobsCreatorGOTO(nodes, nodesFound, untriedSet, untriedSet + 1, oldUntriedSetEndStack,
                                          untriedSetStack, steps, numOfNodes, forkLevel, path, tempPath);
 
