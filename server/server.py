@@ -77,7 +77,9 @@ def handle_request(request : str):
 		if defs.job_m.add_jobGroup(name):
 			print(f"Added {name} to jobs queue.")
 	elif command in STOP_JOBS:
-		pass
+		name = args[0]
+		if defs.job_m.remove_jobGroup(name):
+			print(f"Removed {name} from jobs queue." )
 	elif command in HELP:
 		print("""Welcome to SubgraphCounter Server-App!
 Commands:
@@ -114,7 +116,7 @@ Commands:
 			print("Available graphs:")
 			print(data)
 		if not data_type or data_type == "group":
-			data = list(defs.db_m.get_all_jobGroups().keys())
+			data = {name: jobGroup.get_percentage() for name, jobGroup in defs.db_m.get_all_jobGroups().items()}
 			print("Available groups:")
 			print(data)
 		if not data_type or data_type == "queue":
@@ -142,12 +144,12 @@ Commands:
 		print(f"Failed! \"{command}\" is not a valid command.")
 
 def handle_client(c : socket, addr):
-	request, *args = recv(c).split(' ')
-
-	if request == CLOSE_CON:
+	data = recv(c)
+	if not data:
 		clients.remove(c)
 		print('connection closed: ' + str(addr))
 	else:
+		request, *args = data.split(' ')
 		if request == GET_JOB and len(args) == 0:
 			job = defs.job_m.get_next_job()
 			if not job:
@@ -182,7 +184,7 @@ def main():
 	server_socket = listen_on('0.0.0.0', 36446)
 	clients = []
 	socket2addr = {}
-	handle_request("list")
+	handle_request("Help")
 	while True:
 		r,_,_ = select([server_socket,stdin]+clients, [], [])
 		for c in r:

@@ -66,7 +66,7 @@ class JobGroup(Persistent):
 		return self.graph
 
 	def get_percentage(self):
-		return self.jobs_done / self.totalNumOfJobs
+		return 100*(self.jobs_done / self.totalNumOfJobs)
 
 	def is_completed(self):
 		return self.jobs_done == self.totalNumOfJobs
@@ -138,6 +138,14 @@ class JobManager(Persistent):
 		return True
 
 	@update
+	def remove_jobGroup(self, name: str):
+		if name not in self.jobGroups:
+			print(f"Stoping {name} failed! jobGroup is not queued.")
+			return False
+		self.jobGroups.remove(name)
+		return True
+
+	@update
 	def get_next_job(self, name : str = None):
 		if not self.jobGroups:
 			return None
@@ -173,7 +181,6 @@ class JobManager(Persistent):
 		jobGroup.post_result(job_id, result)
 		if jobGroup.is_completed():
 			self.jobGroups.remove(jobGroup_name)
-			del self._v_name2jobGroup[jobGroup_name]
 			return True, jobGroup.get_result()
 		return True, None
 

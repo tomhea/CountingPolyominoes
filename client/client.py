@@ -3,11 +3,15 @@ from sys import argv, stdin
 from select import select
 from socket import socket
 from threading import Thread
+import threading
 import os.path
 from time import sleep
 
-NO_JOB_FOUND = "None"
-JOB_FOUND = "Job"
+global server_socket
+global computing_thread
+
+NO_JOB_FOUND = "NONE"
+JOB_FOUND = "JOB"
 
 RUN_COMPUTE = ("run",)
 # CHECK_PROGRESS = ("progress", )
@@ -57,18 +61,16 @@ def is_graph_available(graph_name : str):
 	return os.path.isfile(graphs_dir + graph_name)
 
 def compute_jobs_thread():
-	global server_socket
-	global computing_thread
-
 	jobs_finished = 0
 	while True:
-		if getattr(computing_thread, "do_run", False):
+		if not getattr(computing_thread, "do_run"):
 			break
 
 		send(server_socket, GET_JOB)
 		response = recv(server_socket)
 		if response == NO_JOB_FOUND:
-			sleep(3)
+			print("No job available.")
+			sleep(5)
 			continue
 
 		graph_name = recv(server_socket)
@@ -96,15 +98,14 @@ def connect_to(ip, port):
 
 
 def handle_request(request : str):
-	global server_socket
 	global computing_thread
-
 	command = request.split(' ')[0].lower()
 	if command in RUN_COMPUTE:
 		if computing_thread:
 			print("Already computing.")
 			return
 		computing_thread = Thread(target = compute_jobs_thread)
+		computing_thread.do_run = True
 		computing_thread.start()
 	elif command in CLOSE_APP:
 		# later to be kill() ==> update job files ==> exit()
