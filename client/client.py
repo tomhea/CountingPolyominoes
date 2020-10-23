@@ -6,9 +6,12 @@ from threading import Thread
 import threading
 import os.path
 from time import sleep
+from queue import Queue
+from multiprocessing import cpu_count
+
 
 global server_socket
-global computing_thread
+global manager_thread
 
 NO_JOB_FOUND = "NONE"
 JOB_FOUND = "JOB"
@@ -57,38 +60,8 @@ def recv(s : socket, decode = True):
 	return msg
 
 
-def is_graph_available(graph_name : str):
-	return os.path.isfile(graphs_dir + graph_name)
-
-def compute_jobs_thread():
-	jobs_finished = 0
-	while True:
-		if not getattr(computing_thread, "do_run"):
-			break
-
-		send(server_socket, GET_JOB)
-		response = recv(server_socket)
-		if response == NO_JOB_FOUND:
-			print("No job available.")
-			sleep(5)
-			continue
-
-		graph_name = recv(server_socket)
-		job_id = int(recv(server_socket))
-		recvfile(server_socket, jobs_dir + str(job_id))
-
-		if not is_graph_available(graph_name):
-			msg = f"{GET_GRAPH} {graph_name}"
-			send(server_socket, msg)
-			recvfile(server_socket, graphs_dir + graph_name)
-
-		counted = execute_job(graphs_dir + graph_name, jobs_dir + str(job_id))
-		jobs_finished += 1
-		msg = f'{POST_RES} {job_id} {counted}'
-		print(msg)
-		send(server_socket, msg)
-
-	print(f"Finished computing {jobs_finished} jobs.")
+def is_graph_available(graph_path : str):
+	return os.path.isfile(graph_path)
 
 
 def connect_to(ip, port):
@@ -98,20 +71,13 @@ def connect_to(ip, port):
 
 
 def handle_request(request : str):
-	global computing_thread
+	global manager_thread
 	command = request.split(' ')[0].lower()
-	if command in RUN_COMPUTE:
-		if computing_thread:
-			print("Already computing.")
-			return
-		computing_thread = Thread(target = compute_jobs_thread)
-		computing_thread.do_run = True
-		computing_thread.start()
-	elif command in CLOSE_APP:
+	if command in CLOSE_APP:
 		# later to be kill() ==> update job files ==> exit()
-		if computing_thread:
-			computing_thread.do_run = False
-			computing_thread.join()
+		if manager_thread:
+			manager_thread.do_run = False
+			manager_thread.join()
 		server_socket.close()
 		exit()
 	elif command in HELP:
@@ -119,17 +85,72 @@ def handle_request(request : str):
 Commands:
 """)
 
+def compute_job(queue : Queue, graph_path : str, job_path : str, job_id : str):
+	result = execute_job(graph_path, job_path)
+	queue.put((job_id, result))
+
+def execute_manager(max_threads : int):
+	q = Queue()
+	threads_dict = {}	# job_id => thread dictionary
+	jobs_finished = 0
+	last_job_found = True
+	while True:
+		if not q.empty():
+			job_id, result = q.get()
+			t = threads_dict.pop(job_id)
+			t.join()
+			jobs_finished += 1
+			msg = f'{POST_RES} {job_id} {result}'
+			print(msg)
+			send(server_socket, msg)
+		if len(threads_dict) >= max_threads:
+			sleep(1)
+			continue
+
+		if not getattr(manager_thread, "do_run"):
+			# join() all
+			# or: send updates of job files
+			break
+
+		send(server_socket, GET_JOB)
+		response = recv(server_socket)
+		if response == NO_JOB_FOUND:
+			if last_job_found:
+				print("No job available.")
+				last_job_found = False
+			sleep(5)
+			continue
+		else:
+			last_job_found = True
+
+		graph_name = recv(server_socket)
+		graph_path = graphs_dir + graph_name
+		job_id = recv(server_socket)
+		job_path = jobs_dir + job_id
+		recvfile(server_socket, job_path)
+
+		if not is_graph_available(graph_path):
+			msg = f"{GET_GRAPH} {graph_name}"
+			send(server_socket, msg)
+			recvfile(server_socket, graph_path)
+
+		t = Thread(target=compute_job, args=(q, graph_path, job_path, job_id))
+		t.start()
+		threads_dict[job_id] = t
+
+	print(f"Finished computing {jobs_finished} jobs.")
+
 
 def main():
 	global server_socket
-	global computing_thread
+	global manager_thread
 	server_socket = connect_to('127.0.0.1', 36446)
-	computing_thread = None
+	manager_thread = Thread(target=execute_manager, args=(cpu_count(),))
+	manager_thread.do_run = True
+	manager_thread.start()
+
 	while True:
 		handle_request(input())
-		# r,_,_ = select([stdin], [], [])
-		# if stdin in r:
-		# 	handle_request(input())
 
 
 if __name__ == '__main__':

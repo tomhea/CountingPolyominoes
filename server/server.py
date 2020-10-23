@@ -3,6 +3,8 @@ from sys import argv, stdin
 from select import select
 from socket import socket
 import os
+from threading import Thread
+from time import sleep
 
 from defs import *
 import defs
@@ -11,6 +13,8 @@ from jobManager import JobManager
 import transaction
 
 global server_socket, clients
+global jobs_scheduler_deamon
+
 
 def listen_on(ip : str, port : int):
 	s = socket()
@@ -19,7 +23,6 @@ def listen_on(ip : str, port : int):
 	return s
 
 
-BUFFER_SIZE = 1024
 def sendfile(s : socket, path : str):
 	with open(path, 'rb') as f:
 		send(s, f.read(), False)
@@ -92,6 +95,21 @@ def handle_request(request : str):
 		name = args[0]
 		if defs.job_m.remove_jobGroup(name):
 			print(f"Removed {name} from jobs queue." )
+	elif command in RESCHEDULE:
+		if len(args) not in (1, 2):
+			print("Stop takes exactly 1 or 2 arguments.")
+			return
+		if len(args) == 1:
+			name, time = args[0], 0
+		else:
+			name, time = args
+		name = args[0]
+		time = int(args[1]) if len(args) > 1 else 0
+		jobGroup = defs.db_m.get_jobGroup(name)
+		if not jobGroup:
+			print(f"{name} not found.")
+			return
+		jobGroup.reschedule_long_waiting_jobs(time)
 	elif command in HELP:
 		if len(args) > 1:
 			print("Help takes exactly 0 or 1 arguments.")
@@ -165,13 +183,8 @@ def handle_request(request : str):
 		if len(args) > 1:
 			print("Close takes no arguments.")
 			return
-		print("Start closing.")
-		defs.db_m.close()
-		server_socket.close()
-		for c in clients:
-			c.close()
-		print("Done closing.")
-		exit()
+		global running
+		running = False
 	else:
 		print(f"Failed! \"{command}\" is not a valid command.")
 
@@ -194,17 +207,27 @@ def handle_client(c : socket, addr):
 			sendfile(c, job_file_path)
 		elif request == POST_RES and len(args) == 2:
 			job_id, result = args
-			defs.job_m.post_result(int(job_id), int(result))
+			post_success, post_result = defs.job_m.post_result(int(job_id), int(result))
+			if post_result:
+				name, result = post_result
+				print(f'NEW RESULT!\n\t{name}: \t{result}')
 		elif request == GET_GRAPH and len(args) == 1:
 			graph_name = args[0]
 			graph_file_path = defs.db_m.get_graph(graph_name)
 			sendfile(c, graph_file_path)
 
-
+def jobs_scheduler(check_time_seconds):
+	global running
+	while True:
+		sleep(check_time_seconds)
+		if not running:
+			break
+		defs.job_m.reschedule_long_waiting_jobs()
 
 def main():
 	# global job_m, db_m
 	global server_socket, clients
+	global jobs_scheduler_deamon, running
 	defs.db_m = DatabaseManager()
 
 	defs.job_m = defs.db_m.get_jobManager()
@@ -213,13 +236,17 @@ def main():
 		defs.db_m.register_jobManager(defs.job_m)
 		transaction.commit()
 
+	running = True
+	jobs_scheduler_deamon = Thread(target=jobs_scheduler, args=(SCHEDULER_CHECK_TIME,))
+	jobs_scheduler_deamon.start()
+
 	server_socket = listen_on('0.0.0.0', 36446)
 	clients = []
 	socket2addr = {}
 	print(WELCOME_MESSAGE)
 	print("Enter 'Help' or 'H' for more details.\n")
 	print("⛟ ", end="")
-	while True:
+	while running:
 		r,_,_ = select([server_socket,stdin]+clients, [], [])
 		for c in r:
 			if c == server_socket:
@@ -228,10 +255,19 @@ def main():
 				clients.append(c)
 			elif c == stdin:
 				handle_request(input())
-				print("⛟ ", end="")
+				if running:
+					print("⛟ ", end="")
 			else:
 				handle_client(c, socket2addr[c])
 		transaction.commit()
+
+	print("Start closing.")
+	defs.db_m.close()
+	server_socket.close()
+	for c in clients:
+		c.close()
+	print("Done closing.")
+
 
 if __name__ == '__main__':
 	main()

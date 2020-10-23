@@ -19,6 +19,7 @@ HELP = ("help", 'h')
 LIST_DATA = ("list", "l")
 GET_PERCENTAGE = ("percentage", "%")
 GET_LATEST_RESULTS = ("results", "res", "#")
+RESCHEDULE = ("reschedule", "resched")
 PRIORITY = ("priority", "prio")
 CLOSE_APP = ("exit",'close','quit','q')
 
@@ -33,6 +34,9 @@ START_JOBS:"""\tStart [Add] name
 		- Start (or continue) working on the jobs registered under 'name'.""",
 STOP_JOBS:"""\tStop name
 		- Stop (pause) working on the jobs registered under 'name'.""",
+RESCHEDULE:"""\tReschedule [Resched] name (time)
+        - Requeue jobs registered under 'name' that are alive for more then 'time' minutes.
+          If 'time' isn't specified, all active jobs will be requeued.""",
 HELP:"""\tHelp [H] (command)
 		- Prints command explanation.
 		  if command isn't specified - Prints all possible commands, with explanation.""",
@@ -50,4 +54,8 @@ CLOSE_APP:"""\tClose [Exit, Quit, Q]
 }
 
 WELCOME_MESSAGE = "Welcome to SubgraphCounter Server-App!"
-CMD_ORDER = [CREATE_JOBS, REGISTER_GRAPH, START_JOBS, STOP_JOBS, HELP, LIST_DATA, GET_PERCENTAGE, GET_LATEST_RESULTS, PRIORITY, CLOSE_APP]
+CMD_ORDER = [CREATE_JOBS, REGISTER_GRAPH, START_JOBS, STOP_JOBS, RESCHEDULE, HELP, LIST_DATA, GET_PERCENTAGE, GET_LATEST_RESULTS, PRIORITY, CLOSE_APP]
+
+BUFFER_SIZE = 1024
+
+SCHEDULER_CHECK_TIME = 60   # seconds

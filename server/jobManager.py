@@ -18,6 +18,7 @@ class JobStatus(Persistent):
 		self.id = job_id
 		self.active = False
 		self.active_since = datetime.now()
+		self.was_rescheduled = False
 		self.done = False
 		self.result = -1
 
@@ -25,12 +26,24 @@ class JobStatus(Persistent):
 		self.active = True
 		self.active_since = datetime.now()
 
+	def reschedule(self):
+		self.active_since = datetime.now()
+		self.was_rescheduled = True
+
 	def deactivate(self):
 		self.active = False
 
+	def active_time(self):
+		return datetime.now() - self.active_since
+
+	# return total running time (if wasn't rescheduled)
 	def post_result(self, result):
 		self.done = True
 		self.result = result
+
+		if self.was_rescheduled:
+			return None
+		return self.active_time()
 
 
 class JobGroup(Persistent):
@@ -58,6 +71,8 @@ class JobGroup(Persistent):
 
 		self.totalNumOfJobs = len(self.all_jobs)
 		self.jobs_done = 0
+		self.non_rescheduled_total_running_time = timedelta()
+		self.non_rescheduled_jobs_done = 0
 
 	def reload_dict(self):
 		self._v_id2job = {job_id: defs.db_m.get_jobStatus(job_id) for job_id in self.all_jobs}
@@ -67,6 +82,11 @@ class JobGroup(Persistent):
 
 	def get_percentage(self):
 		return 100*(self.jobs_done / self.totalNumOfJobs)
+
+	def get_percentage_rescheduled(self):
+		if self.jobs_done == 0:
+			return 0.0
+		return 100 * ((self.jobs_done - self.non_rescheduled_jobs_done) / self.jobs_done)
 
 	def is_completed(self):
 		return self.jobs_done == self.totalNumOfJobs
@@ -86,20 +106,41 @@ class JobGroup(Persistent):
 
 	@update
 	def post_result(self, job_id : int, result : int):
-		self._v_id2job[job_id].post_result(result)
+		job = self._v_id2job[job_id]
+		running_time_delta = job.post_result(result)
+		if running_time_delta:
+			self.non_rescheduled_total_running_time += running_time_delta
+			self.non_rescheduled_jobs_done += 1
+
+		if job_id in self.remaining_jobs:
+			self.remaining_jobs.remove(job_id)
 		self.active_jobs.remove(job_id)
 		self.jobs_done += 1
 
-	def get_long_waiting_jobs(self, minutes_wait_time : int):
+	def get_long_waiting_jobs(self, max_delta : timedelta):
 		return [job_id for job_id in self.active_jobs if \
-				self._v_id2job[job_id].active_since + timedelta(minutes=minutes_wait_time) < datetime.now()]
+				self._v_id2job[job_id].active_time() > max_delta]
+
+	def get_average_running_time(self):
+		if self.jobs_done < 10:
+			return None
+		return self.non_rescheduled_total_running_time / self.non_rescheduled_jobs_done
 
 	@update
-	def reschedule_long_waiting_jobs(self, minutes_wait_time : int):
-		long_waiting_jobs = self.get_long_waiting_jobs(minutes_wait_time)
+	def reschedule_long_waiting_jobs(self, minutes_wait_time=None):
+		if not minutes_wait_time:
+			avg_delta = self.get_average_running_time()
+			if not avg:
+				return
+			max_delta = avg_delta * 10
+		else:
+			max_delta = timedelta(minutes=minutes_wait_time)
+		long_waiting_jobs = self.get_long_waiting_jobs(max_delta)
 		for job_id in long_waiting_jobs:
-			self._v_id2job[job_id].activate()
+			self._v_id2job[job_id].reschedule()
 			self.remaining_jobs.add(job_id)
+
+		return len(long_waiting_jobs)
 
 
 class JobManager(Persistent):
@@ -110,15 +151,15 @@ class JobManager(Persistent):
 		self.curr_id = 0
 
 	def reload_dict(self):
-		self._v_name2jobGroup = {name: defs.db_m.get_jobGroup(name) for name in self.jobGroups}
+		self._v_name2jobGroup = defs.db_m.get_all_jobGroups()
 
-	#Todo: GroupCreator maybe? see above
 	def create_jobGroup(self, graph_name : str, steps : int, approx_num_of_jobs : int, jobs_folder : str, name : str, doubleCheck : bool = False):
 		job_base_path = f"{jobs_folder}{name}"
 		graph_file_path = defs.db_m.get_graph(graph_name)
 		num_of_jobs_created = jobs_creator(graph_file_path, steps, approx_num_of_jobs, job_base_path)
 		jobGroup = JobGroup(name, graph_name, jobs_folder, self.curr_id, doubleCheck)
 		defs.db_m.register_jobGroup(jobGroup)
+		self._v_name2jobGroup[name] = jobGroup
 		self.curr_id += num_of_jobs_created
 
 	@update
@@ -133,7 +174,6 @@ class JobManager(Persistent):
 		if name in self.jobGroups:
 			print(f"Adding {name} failed! jobGroup is already queued.")
 			return False
-		self._v_name2jobGroup[name] = jobGroup
 		self.jobGroups.append(name)
 		return True
 
@@ -142,6 +182,7 @@ class JobManager(Persistent):
 		if name not in self.jobGroups:
 			print(f"Stoping {name} failed! jobGroup is not queued.")
 			return False
+
 		self.jobGroups.remove(name)
 		return True
 
@@ -180,8 +221,9 @@ class JobManager(Persistent):
 		jobGroup = self._v_name2jobGroup[jobGroup_name]
 		jobGroup.post_result(job_id, result)
 		if jobGroup.is_completed():
-			self.jobGroups.remove(jobGroup_name)
-			return True, jobGroup.get_result()
+			if jobGroup_name in self.jobGroups:
+				self.jobGroups.remove(jobGroup_name)
+			return True, (jobGroup_name, jobGroup.get_result())
 		return True, None
 
 	def get_queued_jobGroups(self):
@@ -189,3 +231,9 @@ class JobManager(Persistent):
 
 	def set_priority(self, name : str, new_prio : int):
 		jobGroup = self._v_name2jobGroup[name]
+		pass
+		# Todo write function
+
+	def reschedule_long_waiting_jobs(self, minutes_wait_time=None):
+		for name in self.jobGroups:
+			self._v_name2jobGroup[name].reschedule_long_waiting_jobs(minutes_wait_time)
