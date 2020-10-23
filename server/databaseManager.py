@@ -71,8 +71,10 @@ class DatabaseManager:
 			graphs[graph_name] = graph_path
 		return graphs
 
-	def get_all_jobGroups(self):
+	def get_all_jobGroups(self, reload=False):
 		groups = {}
 		for name, jobGroup in self.jobGroupsDB.dbroot.items():
 			groups[name] = jobGroup
+			if reload:
+				jobGroup.reload_dict()
 		return groups

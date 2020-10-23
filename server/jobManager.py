@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from persistent import Persistent
 import defs
 
+
 def update(func):
 	def inner(*args, **kwargs):
 		self = args[0]
@@ -21,6 +22,7 @@ class JobStatus(Persistent):
 		self.was_rescheduled = False
 		self.done = False
 		self.result = -1
+
 
 	def activate(self):
 		self.active = True
@@ -130,7 +132,7 @@ class JobGroup(Persistent):
 	def reschedule_long_waiting_jobs(self, minutes_wait_time=None):
 		if not minutes_wait_time:
 			avg_delta = self.get_average_running_time()
-			if not avg:
+			if not avg_delta:
 				return
 			max_delta = avg_delta * 10
 		else:
@@ -151,7 +153,8 @@ class JobManager(Persistent):
 		self.curr_id = 0
 
 	def reload_dict(self):
-		self._v_name2jobGroup = defs.db_m.get_all_jobGroups()
+		self._v_name2jobGroup = defs.db_m.get_all_jobGroups(reload=True)
+
 
 	def create_jobGroup(self, graph_name : str, steps : int, approx_num_of_jobs : int, jobs_folder : str, name : str, doubleCheck : bool = False):
 		job_base_path = f"{jobs_folder}{name}"
@@ -230,10 +233,15 @@ class JobManager(Persistent):
 		return self.jobGroups
 
 	def set_priority(self, name : str, new_prio : int):
+		if name not in self._v_name2jobGroup:
+			return False
 		jobGroup = self._v_name2jobGroup[name]
 		pass
 		# Todo write function
+		return True
 
 	def reschedule_long_waiting_jobs(self, minutes_wait_time=None):
+		rescheduled = 0
 		for name in self.jobGroups:
-			self._v_name2jobGroup[name].reschedule_long_waiting_jobs(minutes_wait_time)
+			rescheduled += self._v_name2jobGroup[name].reschedule_long_waiting_jobs(minutes_wait_time)
+		return rescheduled

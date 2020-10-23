@@ -10,6 +10,10 @@ from queue import Queue
 from multiprocessing import cpu_count
 
 
+SERVER_IP = '127.0.0.1'
+SERVER_PORT = 36446
+
+
 global server_socket
 global manager_thread
 
@@ -85,9 +89,11 @@ def handle_request(request : str):
 Commands:
 """)
 
+
 def compute_job(queue : Queue, graph_path : str, job_path : str, job_id : str):
 	result = execute_job(graph_path, job_path)
 	queue.put((job_id, result))
+
 
 def execute_manager(max_threads : int):
 	q = Queue()
@@ -144,7 +150,7 @@ def execute_manager(max_threads : int):
 def main():
 	global server_socket
 	global manager_thread
-	server_socket = connect_to('127.0.0.1', 36446)
+	server_socket = connect_to(SERVER_IP, SERVER_PORT)
 	manager_thread = Thread(target=execute_manager, args=(cpu_count(),))
 	manager_thread.do_run = True
 	manager_thread.start()

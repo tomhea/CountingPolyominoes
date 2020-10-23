@@ -16,6 +16,12 @@ global server_socket, clients
 global jobs_scheduler_deamon
 
 
+# Non-Deterministic Print
+def ndprint(s):
+	print(s)
+	print("⛟ ", end="")
+
+
 def listen_on(ip : str, port : int):
 	s = socket()
 	s.bind((ip, port))
@@ -50,7 +56,6 @@ def recv(s : socket, decode = True):
 	if decode:
 		msg = msg.decode()
 	return msg
-
 
 
 def handle_request(request : str):
@@ -177,7 +182,8 @@ def handle_request(request : str):
 			pass
 		else:
 			name, prio = args
-			defs.db_m.set_priority(name, int(prio))
+			if not defs.job_m.set_priority(name, int(prio)):
+				pass
 			pass
 	elif command in CLOSE_APP:
 		if len(args) > 1:
@@ -188,11 +194,12 @@ def handle_request(request : str):
 	else:
 		print(f"Failed! \"{command}\" is not a valid command.")
 
+
 def handle_client(c : socket, addr):
 	data = recv(c)
 	if not data:
 		clients.remove(c)
-		print('connection closed: ' + str(addr))
+		ndprint('connection closed: ' + str(addr))
 	else:
 		request, *args = data.split(' ')
 		if request == GET_JOB and len(args) == 0:
@@ -210,64 +217,77 @@ def handle_client(c : socket, addr):
 			post_success, post_result = defs.job_m.post_result(int(job_id), int(result))
 			if post_result:
 				name, result = post_result
-				print(f'NEW RESULT!\n\t{name}: \t{result}')
+				ndprint(f'NEW RESULT!\n\t{name}: \t{result}')
 		elif request == GET_GRAPH and len(args) == 1:
 			graph_name = args[0]
 			graph_file_path = defs.db_m.get_graph(graph_name)
 			sendfile(c, graph_file_path)
 
+
 def jobs_scheduler(check_time_seconds):
 	global running
 	while True:
-		sleep(check_time_seconds)
-		if not running:
-			break
-		defs.job_m.reschedule_long_waiting_jobs()
+		for _ in range(check_time_seconds):
+			sleep(1)
+			if not running:
+				return
+		rescheduled = defs.job_m.reschedule_long_waiting_jobs()
+		if rescheduled:
+			ndprint(f"Automatically rescheduled {rescheduled} jobs.")
 
 def main():
 	# global job_m, db_m
 	global server_socket, clients
+	server_socket, clients = None, []
 	global jobs_scheduler_deamon, running
-	defs.db_m = DatabaseManager()
 
-	defs.job_m = defs.db_m.get_jobManager()
-	if not defs.job_m:
-		defs.job_m = JobManager()
-		defs.db_m.register_jobManager(defs.job_m)
-		transaction.commit()
+	try:
+		defs.db_m = DatabaseManager()
+		defs.job_m = defs.db_m.get_jobManager()
+		if not defs.job_m:
+			defs.job_m = JobManager()
+			defs.db_m.register_jobManager(defs.job_m)
+			transaction.commit()
 
-	running = True
-	jobs_scheduler_deamon = Thread(target=jobs_scheduler, args=(SCHEDULER_CHECK_TIME,))
-	jobs_scheduler_deamon.start()
+		running = True
+		jobs_scheduler_deamon = Thread(target=jobs_scheduler, args=(SCHEDULER_CHECK_TIME,))
+		jobs_scheduler_deamon.start()
 
-	server_socket = listen_on('0.0.0.0', 36446)
-	clients = []
-	socket2addr = {}
-	print(WELCOME_MESSAGE)
-	print("Enter 'Help' or 'H' for more details.\n")
-	print("⛟ ", end="")
-	while running:
-		r,_,_ = select([server_socket,stdin]+clients, [], [])
-		for c in r:
-			if c == server_socket:
-				c, addr = server_socket.accept()
-				socket2addr[c] = addr
-				clients.append(c)
-			elif c == stdin:
-				handle_request(input())
-				if running:
-					print("⛟ ", end="")
-			else:
-				handle_client(c, socket2addr[c])
-		transaction.commit()
-
-	print("Start closing.")
-	defs.db_m.close()
-	server_socket.close()
-	for c in clients:
-		c.close()
-	print("Done closing.")
+		server_socket = listen_on(SERVER_BIND, SERVER_PORT)
+		socket2addr = {}
+		print(WELCOME_MESSAGE)
+		print("Enter 'Help' or 'H' for more details.\n")
+		print("⛟ ", end="")
+		while running:
+			r,_,_ = select([server_socket,stdin]+clients, [], [])
+			for c in r:
+				if c == server_socket:
+					c, addr = server_socket.accept()
+					socket2addr[c] = addr
+					clients.append(c)
+				elif c == stdin:
+					handle_request(input())
+					if running:
+						print("⛟ ", end="")
+				else:
+					handle_client(c, socket2addr[c])
+			transaction.commit()
+	except Exception as e:
+		print('Error Occurred: \n\t' + repr(e))
+	finally:
+		print("Start closing.")
+		running = False
+		if defs.db_m:
+			defs.db_m.close()
+		if server_socket:
+			server_socket.close()
+		for c in clients:
+			c.close()
+		if jobs_scheduler_deamon:
+			jobs_scheduler_deamon.join()
+		print("Done closing.")
 
 
 if __name__ == '__main__':
 	main()
+
