@@ -53,11 +53,14 @@ def recv(s : socket, decode = True):
 def handle_request(request : str):
 	command, *args = request.split(' ')
 	command = command.lower()
-	if command in CREATE_JOBS:
+
+	if not command:
+		pass
+	elif command in CREATE_JOBS:
 		if len(args) != 4:
 			print("Create takes exactly 4 arguments.")
 			return
-		graph_name, steps, approximate, name = args
+		name, graph_name, steps, approximate = args
 		if defs.db_m.get_jobGroup(name):
 			print("JobGroup already exists.")
 			return
@@ -68,71 +71,100 @@ def handle_request(request : str):
 		print(f"Creating {name}.")
 		defs.job_m.create_jobGroup(graph_name, int(steps), int(approximate), folder_path, name)
 		print(f"Completed creating {name}.")
-	elif command in ADD_GRAPH:
-		graph_path, graph_name = args
+	elif command in REGISTER_GRAPH:
+		if len(args) != 2:
+			print("Graph takes exactly 2 arguments.")
+			return
+		graph_name, graph_path = args
 		defs.db_m.register_graph(graph_path, graph_name)
 		print(f"Added {graph_name}")
 	elif command in START_JOBS:
+		if len(args) != 1:
+			print("Start takes exactly 1 argument.")
+			return
 		name = args[0]
 		if defs.job_m.add_jobGroup(name):
 			print(f"Added {name} to jobs queue.")
 	elif command in STOP_JOBS:
+		if len(args) != 1:
+			print("Stop takes exactly 1 argument.")
+			return
 		name = args[0]
 		if defs.job_m.remove_jobGroup(name):
 			print(f"Removed {name} from jobs queue." )
 	elif command in HELP:
-		print("""Welcome to SubgraphCounter Server-App!
-Commands:
-	Create graph steps num path name
-		- Creates (About) 'num' jobs ([path]_0, [path]_1, ...) for calculating
-		  the number of subgraphs of the registered 'graph' with 'steps' connected nodes.
-		  The created jobs are registered in the server's database under 'name'.
-	Graph path name
-		- Register the graph in 'path' under 'name'.
-	Start name
-		- Start (or continue) working on the jobs registered under 'name'.
-	Stop name
-		- Stop (pause) working on the jobs registered under 'name'.
-	Help [H]
-		- Present all possible commands, with explanation.
-	List (optional graph|group|queue)
-		- Prints data about groups and graphs, leave empty for all data, or filter by optinal.
-	Percentage [%] name
-		- Prints the percentage (%) of the completed jobs registered under 'name'.
-	Results [Res] name
-		- Prints the current total results of the jobs registered under 'name'.
-	Priority [Prio] (name, index)
-		- If no arguments given - prints all active job groups by their priority.
-		  Else - moves jobs registered under 'name' to priority 'index'.
-	Close
-		- Exits app, closes server and database 
-""")
+		if len(args) > 1:
+			print("Help takes exactly 0 or 1 arguments.")
+			return
+		elif args:
+			cmd = args[0]
+			possible_cmds = [key for key in cmd_dict.keys() if cmd in key]
+			if not possible_cmds:
+				print("No such command.")
+			else:
+				print(cmd_dict[possible_cmds[0]])
+		else:
+			print(WELCOME_MESSAGE)
+			print("List of all possible commands:")
+			print('\n'.join([cmd_dict[cmd] for cmd in CMD_ORDER]))
 	elif command in LIST_DATA:
-		data_type = None
-		if len(args) == 1:
-			data_type = args[0]
+		if len(args) > 1:
+			print("List takes exactly 0 or 1 arguments.")
+			return
+		data_type = args[0] if args else None
 		if not data_type or data_type == "graph":
 			data = defs.db_m.get_all_graphs()
 			print("Available graphs:")
-			print(data)
+			print('\n'.join([f"\t{name}: \t{path}" for name, path in data.items()]))
 		if not data_type or data_type == "group":
 			data = {name: jobGroup.get_percentage() for name, jobGroup in defs.db_m.get_all_jobGroups().items()}
 			print("Available groups:")
-			print(data)
+			print('\n'.join([f"\t{name}: \t{perc:.2f}%" for name,perc in data.items()]))
 		if not data_type or data_type == "queue":
 			data = defs.job_m.get_queued_jobGroups()
 			print("Queued groups:")
-			print(data)
+			print('\t' + ', '.join(data))
 	elif command in GET_PERCENTAGE:
+		if len(args) != 1:
+			print("Percentage takes exactly 1 argument.")
+			return
+		name = args[0]
+		jobGroup = defs.db_m.get_jobGroup(name)
+		if not jobGroup:
+			print(f"{name} not found.")
+			return
+		print(f"\t{jobGroup.get_percentage():.4f}%")
 		pass
 	elif command in GET_LATEST_RESULTS:
+		if len(args) != 1:
+			print("Results takes exactly 1 argument.")
+			return
 		#TODO Exposing jobGroup, might want to find encapsulating solution
 		name = args[0]
-		res = defs.db_m.get_jobGroup(name).get_result()
-		print(f"Result of group {name}: {res}")
+		jobGroup = defs.db_m.get_jobGroup(name)
+		if not jobGroup:
+			print(f"{name} not found.")
+			return
+		res = jobGroup.get_result()
+		print(f"Current results:   \t {res:,}")
+		perc = jobGroup.get_percentage()
+		print(f"Estimated results: \t~{int(res / (perc/100)):,}")
 	elif command in PRIORITY:
-		pass
+		if len(args) not in (0,2):
+			print("Priority takes exactly 0 or 2 arguments.")
+			return
+		elif not args:
+			for i,name in enumerate(defs.job_m.get_queued_jobGroups()):
+				print(f'\t{i+1}) \t{name}')
+			pass
+		else:
+			name, prio = args
+			defs.db_m.set_priority(name, int(prio))
+			pass
 	elif command in CLOSE_APP:
+		if len(args) > 1:
+			print("Close takes no arguments.")
+			return
 		print("Start closing.")
 		defs.db_m.close()
 		server_socket.close()
@@ -184,7 +216,9 @@ def main():
 	server_socket = listen_on('0.0.0.0', 36446)
 	clients = []
 	socket2addr = {}
-	handle_request("Help")
+	print(WELCOME_MESSAGE)
+	print("Enter 'Help' or 'H' for more details.\n")
+	print("⛟ ", end="")
 	while True:
 		r,_,_ = select([server_socket,stdin]+clients, [], [])
 		for c in r:
@@ -194,6 +228,7 @@ def main():
 				clients.append(c)
 			elif c == stdin:
 				handle_request(input())
+				print("⛟ ", end="")
 			else:
 				handle_client(c, socket2addr[c])
 		transaction.commit()

@@ -186,3 +186,6 @@ class JobManager(Persistent):
 
 	def get_queued_jobGroups(self):
 		return self.jobGroups
+
+	def set_priority(self, name : str, new_prio : int):
+		jobGroup = self._v_name2jobGroup[name]
