@@ -1,15 +1,18 @@
-from redelServer import jobs_creator
-from os import listdir
+from os import listdir, makedirs
+from os.path import isfile, isdir, abspath
 from datetime import datetime, timedelta
-from persistent import Persistent
+
 import defs
+from redelServer import jobs_creator
+from persistent import Persistent
 
 
 def update(func):
 	def inner(*args, **kwargs):
 		self = args[0]
+		res = func(*args, **kwargs)
 		self._p_changed = True
-		return func(*args, **kwargs)
+		return res
 	return inner
 
 
@@ -22,7 +25,6 @@ class JobStatus(Persistent):
 		self.was_rescheduled = False
 		self.done = False
 		self.result = -1
-
 
 	def activate(self):
 		self.active = True
@@ -46,6 +48,11 @@ class JobStatus(Persistent):
 		if self.was_rescheduled:
 			return None
 		return self.active_time()
+
+	def get_result(self, zero_if_not_done=True):
+		if not self.done and zero_if_not_done:
+			return 0
+		return self.result
 
 
 class JobGroup(Persistent):
@@ -83,7 +90,7 @@ class JobGroup(Persistent):
 		return self.graph
 
 	def get_percentage(self):
-		return 100*(self.jobs_done / self.totalNumOfJobs)
+		return 100 * (self.jobs_done / self.totalNumOfJobs)
 
 	def get_percentage_rescheduled(self):
 		if self.jobs_done == 0:
@@ -94,7 +101,7 @@ class JobGroup(Persistent):
 		return self.jobs_done == self.totalNumOfJobs
 
 	def get_result(self):
-		return sum(self._v_id2job[job_id].result for job_id in self.all_jobs if self._v_id2job[job_id].done)
+		return sum(self._v_id2job[job_id].get_result() for job_id in self.all_jobs)
 
 	@update
 	def get_next_job(self):
@@ -129,11 +136,12 @@ class JobGroup(Persistent):
 		return self.non_rescheduled_total_running_time / self.non_rescheduled_jobs_done
 
 	@update
+	# returns how many jobs rescheduled
 	def reschedule_long_waiting_jobs(self, minutes_wait_time=None):
 		if not minutes_wait_time:
 			avg_delta = self.get_average_running_time()
 			if not avg_delta:
-				return
+				return 0
 			max_delta = avg_delta * 10
 		else:
 			max_delta = timedelta(minutes=minutes_wait_time)
@@ -155,39 +163,48 @@ class JobManager(Persistent):
 	def reload_dict(self):
 		self._v_name2jobGroup = defs.db_m.get_all_jobGroups(reload=True)
 
-
 	def create_jobGroup(self, graph_name : str, steps : int, approx_num_of_jobs : int, jobs_folder : str, name : str, doubleCheck : bool = False):
 		job_base_path = f"{jobs_folder}{name}"
 		graph_file_path = defs.db_m.get_graph(graph_name)
+		if steps < 0:
+			return "Failed. steps should not be negative."
+		if approx_num_of_jobs <= 0:
+			return "Failed. num should be positive."
+		if not graph_file_path:
+			return f"Failed. Graph {graph_name} isn't registered."
+		if not isfile(graph_file_path):
+			return f"Failed. Graph path {abspath(graph_file_path)} doesn't exist."
+		if isdir(jobs_folder) and listdir(jobs_folder) != []:
+			return f"Failed. Folder {abspath(jobs_folder)} should be deleted or emptied."
+		elif not isdir(jobs_folder):	# if folder doesn't exist - create it
+			makedirs(jobs_folder)
 		num_of_jobs_created = jobs_creator(graph_file_path, steps, approx_num_of_jobs, job_base_path)
 		jobGroup = JobGroup(name, graph_name, jobs_folder, self.curr_id, doubleCheck)
 		defs.db_m.register_jobGroup(jobGroup)
 		self._v_name2jobGroup[name] = jobGroup
 		self.curr_id += num_of_jobs_created
+		return num_of_jobs_created
 
 	@update
+	# returns error message
 	def add_jobGroup(self, name : str):
 		jobGroup = defs.db_m.get_jobGroup(name)
 		if not jobGroup:
-			print(f"Adding {name} failed! jobGroup is not found.")
-			return False
+			return f"Failed! Group {name} is not found."
 		if jobGroup.is_completed():
-			print(f"Adding {name} failed! jobGroup is completed.")
-			return False
+			return f"Failed! Group {name} is completed."
 		if name in self.jobGroups:
-			print(f"Adding {name} failed! jobGroup is already queued.")
-			return False
+			return f"Failed! Group {name} is already queued."
 		self.jobGroups.append(name)
-		return True
+		return None
 
 	@update
+	# returns error message
 	def remove_jobGroup(self, name: str):
 		if name not in self.jobGroups:
-			print(f"Stoping {name} failed! jobGroup is not queued.")
-			return False
-
+			return f"Failed! Group {name} is not queued."
 		self.jobGroups.remove(name)
-		return True
+		return None
 
 	@update
 	def get_next_job(self, name : str = None):
@@ -232,13 +249,14 @@ class JobManager(Persistent):
 	def get_queued_jobGroups(self):
 		return self.jobGroups
 
-	def set_priority(self, name : str, new_prio : int):
+	@update
+	def set_priority(self, name : str, index : int):
+		if index < 1 or index > len(self.jobGroups):
+			return f"Failed. index should be between [1, {len(self.jobGroups)}] (number of queued groups)."
 		if name not in self._v_name2jobGroup:
-			return False
-		jobGroup = self._v_name2jobGroup[name]
-		pass
-		# Todo write function
-		return True
+			return f"Failed. Name {name} is not found."
+		without = [n for n in self.jobGroups if name != n]
+		self.jobGroups = without[:index-1] + [name] + without[index-1:]
 
 	def reschedule_long_waiting_jobs(self, minutes_wait_time=None):
 		rescheduled = 0

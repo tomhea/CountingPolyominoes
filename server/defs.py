@@ -21,7 +21,7 @@ GET_PERCENTAGE = ("percentage", "%")
 GET_LATEST_RESULTS = ("results", "res", "#")
 RESCHEDULE = ("reschedule", "resched")
 PRIORITY = ("priority", "prio")
-CLOSE_APP = ("exit",'close','quit','q')
+CLOSE_APP = ("close", "exit", "x", "quit", "q")
 
 cmd_dict = {
 CREATE_JOBS:"""\tCreate name graph steps num
@@ -35,13 +35,14 @@ START_JOBS:"""\tStart [Add] name
 STOP_JOBS:"""\tStop name
 		- Stop (pause) working on the jobs registered under 'name'.""",
 RESCHEDULE:"""\tReschedule [Resched] name (time)
-        - Requeue jobs registered under 'name' that are alive for more then 'time' minutes.
-          If 'time' isn't specified, all active jobs will be requeued.""",
+		- Requeue jobs registered under 'name' that are alive for more then 'time' minutes.
+		  If 'time' isn't specified, all active jobs will be requeued.""",
 HELP:"""\tHelp [H] (command)
 		- Prints command explanation.
-		  if command isn't specified - Prints all possible commands, with explanation.""",
-LIST_DATA:"""\tList [L] (optional graph|group|queue)
-		- Prints data about groups and graphs, leave empty for all data, or filter by optional.""",
+		  If command isn't specified - Prints all possible commands, with explanation.""",
+LIST_DATA:"""\tList [L] (graph|group|queue)
+		- Prints data about graphs, groups and queued groups.
+		  Filter the data by the optional argument.""",
 GET_PERCENTAGE:"""\tPercentage [%] name
 		- Prints the percentage (%) of the completed jobs registered under 'name'.""",
 GET_LATEST_RESULTS:"""\tResults [Res, #] name
@@ -49,13 +50,15 @@ GET_LATEST_RESULTS:"""\tResults [Res, #] name
 PRIORITY:"""\tPriority [Prio] (name, index)
 		- If no arguments given - prints all active job groups by their priority.
 		  Else - moves jobs registered under 'name' to priority 'index'.""",
-CLOSE_APP:"""\tClose [Exit, Quit, Q]
-		- Exits app, closes server and database """
+CLOSE_APP:"""\tClose [Exit, X, Quit, Q]
+		- Exits app, closes server and database."""
 }
 
 WELCOME_MESSAGE = "Welcome to SubgraphCounter Server-App!"
+HELP_MSG1 = "List of all possible commands:"
+HELP_MSG2 = " The [] specifies more names for the same command (commands are not case sensitive),"
+HELP_MSG3 = " and the arguments are placed afterwords. The () specifies optional arguments."
 CMD_ORDER = [CREATE_JOBS, REGISTER_GRAPH, START_JOBS, STOP_JOBS, RESCHEDULE, HELP, LIST_DATA, GET_PERCENTAGE, GET_LATEST_RESULTS, PRIORITY, CLOSE_APP]
-
 
 SERVER_BIND = '0.0.0.0'
 SERVER_PORT = 36446

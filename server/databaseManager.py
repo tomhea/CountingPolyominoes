@@ -11,9 +11,12 @@ class MyZODB(object):
 		self.dbroot = self.connection.root()
 
 	def close(self):
-		self.connection.close()
-		self.db.close()
-		self.storage.close()
+		if self.connection:
+			self.connection.close()
+		if self.db:
+			self.db.close()
+		if self.storage:
+			self.storage.close()
 
 
 class DatabaseManager:
