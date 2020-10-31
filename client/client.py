@@ -1,3 +1,4 @@
+#!./python3.8
 from sys import argv, stdin
 from select import select
 from socket import socket
