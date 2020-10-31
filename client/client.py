@@ -3,9 +3,9 @@ from sys import argv, stdin
 from select import select
 from socket import socket
 from threading import Thread
-from multiprocessing import cpu_count
+from multiprocessing import cpu_count, Process, Queue
 from os.path import isfile, isdir, abspath
-from queue import Queue
+from os import remove
 from time import sleep
 
 from defs import *
@@ -155,12 +155,12 @@ def handle_request(request : str):
 		if len(args) >= 1:
 			print("Close takes no arguments.")
 			return
-		if server_socket:
-			server_socket.close()
 		global manager_thread
 		if manager_thread:
 			manager_thread.do_run = False
 			manager_thread.join()
+		if server_socket:
+			server_socket.close()
 		exit()
 
 	else:
@@ -172,32 +172,39 @@ def compute_job(queue : Queue, graph_path : str, job_path : str, job_id : str):
 	queue.put((job_id, result))
 
 
-def execute_manager(max_threads : int):
+def execute_manager(max_subprocess : int):
 	q = Queue()
-	threads_dict = {}	# job_id => thread dictionary
+	process_dict = {}	# job_id => thread dictionary
 	jobs_finished = 0
 	last_job_found = True
 	while True:
-		if not q.empty():
+		while not q.empty():
 			job_id, result = q.get()
-			t = threads_dict.pop(job_id)
-			t.join()
+			p = process_dict.pop(job_id)
+			p.join()
 			jobs_finished += 1
 			msg = f'{POST_RES} {job_id} {result}'
 			global prints
 			if prints:
 				ndprint(msg)
 			send(server_socket, msg)
-			# TODO delete job file.
+			job_path = jobs_dir + job_id
+			if isfile(job_path):
+				remove(job_path)
 
 		if not getattr(manager_thread, "do_run"):
-			update()
-			print_statistics(finish=True)
-			# TODO delete all remaining job files. maybe kill threads.
-			# kill_and_join_all() ?
+			for job_id, p  in process_dict.items():
+				p.terminate()
+				p.join()
+				job_path = jobs_dir + job_id
+				if isfile(job_path):
+					msg = f"{UPDATE_JOB} {str(job_id)}"
+					send(server_socket, msg)
+					sendfile(server_socket, job_path)
+					remove(job_path)
 			break
 
-		if len(threads_dict) >= max_threads:
+		if len(process_dict) >= max_subprocess:
 			sleep(1)
 			continue
 
@@ -243,10 +250,11 @@ def execute_manager(max_threads : int):
 				sleep(1)
 				continue
 
-		t = Thread(target=compute_job, args=(q, graph_path, job_path, job_id))
-		t.start()
-		threads_dict[job_id] = t
+		p = Process(target=compute_job, args=(q, graph_path, job_path, job_id))
+		p.start()
+		process_dict[job_id] = p
 
+	print_statistics(finish=True)
 	print(f"Finished computing {jobs_finished} jobs.")
 
 
@@ -272,11 +280,12 @@ def main():
 			print('Error Occurred: \n\t' + repr(e))
 
 		finally:
-			if server_socket:
-				server_socket.close()
 			if manager_thread:
 				manager_thread.do_run = False
 				manager_thread.join()
+			if server_socket:
+				server_socket.close()
+
 
 if __name__ == '__main__':
 	main()

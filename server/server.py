@@ -4,7 +4,7 @@ from socket import socket
 from threading import Thread
 from time import sleep
 from os.path import isfile, isdir, abspath
-
+from os import remove
 import defs
 from defs import *
 from redelServer import *
@@ -101,7 +101,7 @@ def handle_request(request : str):
 		if defs.db_m.get_jobGroup(name):
 			print(f"Failed. Name {name} is already registered.")
 			return
-		folder_path = f"./Jobs/{name}/"
+		folder_path = f"{jobs_dir}{name}/"
 		print('Started creating jobs, it may take a while...')
 		res = defs.job_m.create_jobGroup(graph_name, steps, approximate, folder_path, name)
 		if type(res) is str:
@@ -263,6 +263,14 @@ def handle_client(c : socket, addr):
 			send(c, str(job_id))
 			sendfile(c, job_file_path)
 
+		elif request == GET_GRAPH and len(args) == 1:
+			graph_name = args[0]
+			graph_file_path = defs.db_m.get_graph(graph_name)
+			if not graph_file_path:
+				ndprint(f'graph named "{graph_name}" (not registered) asked by {str(addr)}')
+				return
+			sendfile(c, graph_file_path)
+
 		elif request == POST_RES and len(args) == 2:
 			job_id, result = args
 			int_results = [safe_int(arg) for arg in args]
@@ -274,15 +282,14 @@ def handle_client(c : socket, addr):
 			if post_result:
 				name, result = post_result
 				ndprint(f'NEW RESULT!\n\t{name}: \t{result:,}')
-
-		elif request == GET_GRAPH and len(args) == 1:
-			graph_name = args[0]
-			graph_file_path = defs.db_m.get_graph(graph_name)
-			if not graph_file_path:
-				ndprint(f'graph named "{graph_name}" (not registered) asked by {str(addr)}')
-				return
-			sendfile(c, graph_file_path)
-
+		elif request == UPDATE_JOB and len(args) == 1:
+			job_id = args[0]
+			print(f"Got update {job_id}")
+			updated_job_path = f"{jobs_dir}update_{job_id}"
+			recvfile(c, updated_job_path)
+			if defs.job_m.update_job(int(job_id), updated_job_path):
+				print(f"Updated {job_id}")
+			remove(updated_job_path)
 
 def jobs_scheduler(check_time_seconds):
 	global running

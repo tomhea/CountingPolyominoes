@@ -1,4 +1,5 @@
-from os import listdir, makedirs
+from os import listdir, makedirs, remove
+from shutil import copyfile
 from os.path import isfile, isdir, abspath
 from datetime import datetime, timedelta
 
@@ -126,6 +127,13 @@ class JobGroup(Persistent):
 		self.active_jobs.remove(job_id)
 		self.jobs_done += 1
 
+	@update
+	def update_job(self, job_id : int, updated_job_path : str):
+		jobStatus = self._v_id2job[job_id]
+		copyfile(updated_job_path, jobStatus.file_name)
+		jobStatus.reschedule()
+		self.remaining_jobs.add(job_id)
+
 	def get_long_waiting_jobs(self, max_delta : timedelta):
 		return [job_id for job_id in self.active_jobs if \
 				self._v_id2job[job_id].active_time() > max_delta]
@@ -151,7 +159,6 @@ class JobGroup(Persistent):
 			self.remaining_jobs.add(job_id)
 
 		return len(long_waiting_jobs)
-
 
 class JobManager(Persistent):
 	def __init__(self):
@@ -248,6 +255,15 @@ class JobManager(Persistent):
 
 	def get_queued_jobGroups(self):
 		return self.jobGroups
+
+	def update_job(self, job_id : int, updated_job_path : str):
+		jobGroup_name = self.active_jobs.get(job_id)
+		if not jobGroup_name:
+			return False
+
+		jobGroup = self._v_name2jobGroup[jobGroup_name]
+		jobGroup.update_job(job_id, updated_job_path)
+		return True
 
 	@update
 	def set_priority(self, name : str, index : int):

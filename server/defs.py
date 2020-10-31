@@ -11,6 +11,9 @@ GET_GRAPH = "GRAPH"
 UPDATE_JOB = "UPDATE"
 CLOSE_CON = ""
 
+graphs_dir = "./Graphs/"
+jobs_dir = "./Jobs/"
+
 CREATE_JOBS = ("create",)
 REGISTER_GRAPH = ("graph",)
 START_JOBS = ("start", "add")
