@@ -18,6 +18,7 @@ CREATE_JOBS = ("create",)
 REGISTER_GRAPH = ("graph",)
 START_JOBS = ("start", "add")
 STOP_JOBS = ("stop",)
+DELETE_JOBS = ("delete",)
 HELP = ("help", 'h')
 LIST_DATA = ("list", "l")
 GET_PERCENTAGE = ("percentage", "%")
@@ -37,6 +38,8 @@ START_JOBS:"""\tStart [Add] name
 		- Start (or continue) working on the jobs registered under 'name'.""",
 STOP_JOBS:"""\tStop name
 		- Stop (pause) working on the jobs registered under 'name'.""",
+DELETE_JOBS:"""\tDelete name
+        - Deletes the data, jobs and folder that registered under 'name.""",
 RESCHEDULE:"""\tReschedule [Resched] name (time)
 		- Requeue jobs registered under 'name' that are alive for more then 'time' minutes.
 		  If 'time' isn't specified, all active jobs will be requeued.""",
@@ -61,7 +64,7 @@ WELCOME_MESSAGE = "Welcome to SubgraphCounter Server-App!"
 HELP_MSG1 = "List of all possible commands:"
 HELP_MSG2 = " The [] specifies more names for the same command (commands are not case sensitive),"
 HELP_MSG3 = " and the arguments are placed afterwords. The () specifies optional arguments."
-CMD_ORDER = [CREATE_JOBS, REGISTER_GRAPH, START_JOBS, STOP_JOBS, RESCHEDULE, HELP, LIST_DATA, GET_PERCENTAGE, GET_LATEST_RESULTS, PRIORITY, CLOSE_APP]
+CMD_ORDER = [CREATE_JOBS, REGISTER_GRAPH, START_JOBS, STOP_JOBS, DELETE_JOBS, RESCHEDULE, HELP, LIST_DATA, GET_PERCENTAGE, GET_LATEST_RESULTS, PRIORITY, CLOSE_APP]
 
 SERVER_BIND = '0.0.0.0'
 SERVER_PORT = 36446

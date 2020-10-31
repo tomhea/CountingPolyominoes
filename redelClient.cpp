@@ -25,8 +25,6 @@ u64 recCounterGOTO(int** nodes, bool* nodesFound, int* untriedSet, int** oldUntr
     u32 graphSize;
 
     bool mainBackup = access(backUpPath, F_OK ) != -1;
-//    bool tempBackup = access(tempBackUpPath, F_OK) != -1;
-//    assert(mainBackup || tempBackup);
     recover(mainBackup, backUpPath, tempBackUpPath, isNewJob,
             initSteps, steps, counted, nextBackup, graphSize, nodesFound,
             startOfUntriedSet, untriedSetEnd,
@@ -128,10 +126,12 @@ u64 countSubGraphs(int** nodes, u32 numOfNodes, const char* jobPath) {
     return count;
 }
 
-
 u64 executeJob(const char* graphFilePath, const char* jobPath) {
     int originCell, **graph;
     u32 numOfNodes;
+
     readGraphFromFile(graphFilePath, &originCell, &graph, &numOfNodes);
-    return countSubGraphs(graph, numOfNodes, jobPath);
+    u64 count = countSubGraphs(graph, numOfNodes, jobPath);
+    deleteGraph(graph, numOfNodes);
+    return count;
 }

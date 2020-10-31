@@ -35,6 +35,9 @@ class DatabaseManager:
 	def register_jobStatus(self, jobStatus: JobStatus):
 		self.jobsDB.dbroot[jobStatus.id] = jobStatus
 
+	def unregister_jobStatus(self, job_id: int):
+		del self.jobsDB.dbroot[job_id]
+
 	def get_jobStatus(self, job_id: int):
 		if job_id not in list(self.jobsDB.dbroot.keys()):
 			return None
@@ -50,6 +53,9 @@ class DatabaseManager:
 
 	def register_jobGroup(self, jobGroup: JobGroup):
 		self.jobGroupsDB.dbroot[jobGroup.name] = jobGroup
+
+	def unregister_jobGroup(self, name: str):
+		del self.jobGroupsDB.dbroot[name]
 
 	def get_jobGroup(self, name: str):
 		if name not in list(self.jobGroupsDB.dbroot.keys()):

@@ -1,9 +1,10 @@
-from os import listdir, makedirs, remove
+from os import listdir, makedirs, remove, rmdir
 from shutil import copyfile
 from os.path import isfile, isdir, abspath
 from datetime import datetime, timedelta
 
 import defs
+from defs import jobs_dir, graphs_dir
 from redelServer import jobs_creator
 from persistent import Persistent
 
@@ -86,6 +87,12 @@ class JobGroup(Persistent):
 
 	def reload_dict(self):
 		self._v_id2job = {job_id: defs.db_m.get_jobStatus(job_id) for job_id in self.all_jobs}
+
+	def delete_all_jobStatus(self):
+		for job_id in self.all_jobs:
+			jobStatus = self._v_id2job[job_id]
+			remove(jobStatus.file_name)
+			defs.db_m.unregister_jobStatus(job_id)
 
 	def get_graph(self):
 		return self.graph
@@ -170,7 +177,8 @@ class JobManager(Persistent):
 	def reload_dict(self):
 		self._v_name2jobGroup = defs.db_m.get_all_jobGroups(reload=True)
 
-	def create_jobGroup(self, graph_name : str, steps : int, approx_num_of_jobs : int, jobs_folder : str, name : str, doubleCheck : bool = False):
+	def create_jobGroup(self, graph_name : str, steps : int, approx_num_of_jobs : int, name : str, doubleCheck : bool = False):
+		jobs_folder = f"{jobs_dir}{name}/"
 		job_base_path = f"{jobs_folder}{name}"
 		graph_file_path = defs.db_m.get_graph(graph_name)
 		if steps < 0:
@@ -191,6 +199,23 @@ class JobManager(Persistent):
 		self._v_name2jobGroup[name] = jobGroup
 		self.curr_id += num_of_jobs_created
 		return num_of_jobs_created
+
+	@update
+	def delete_jobGroup(self, name : str):
+		if name in self.jobGroups:
+			return f"Failed! Group {name} is queued, please unqueue it first."
+		jobGroup = defs.db_m.get_jobGroup(name)
+		if not jobGroup:
+			return f"Failed! Group {name} is not found."
+		active_jobs_to_remove = [job_id for job_id, jobGroup_name in self.active_jobs.items() if jobGroup_name == name]
+		for job_id in active_jobs_to_remove:
+			del self.active_jobs[job_id]
+		if name in self._v_name2jobGroup:
+			del self._v_name2jobGroup[name]
+		jobGroup.delete_all_jobStatus()
+		jobs_folder = f"{jobs_dir}{name}/"
+		rmdir(jobs_folder)
+		defs.db_m.unregister_jobGroup(name)
 
 	@update
 	# returns error message

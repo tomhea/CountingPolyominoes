@@ -101,11 +101,10 @@ def handle_request(request : str):
 		if defs.db_m.get_jobGroup(name):
 			print(f"Failed. Name {name} is already registered.")
 			return
-		folder_path = f"{jobs_dir}{name}/"
 		print('Started creating jobs, it may take a while...')
-		res = defs.job_m.create_jobGroup(graph_name, steps, approximate, folder_path, name)
+		res = defs.job_m.create_jobGroup(graph_name, steps, approximate, name)
 		if type(res) is str:
-			print(res)	# print error
+			print(res) # print error
 		else:
 			print(f"Done! A total of {res} jobs were created.")
 
@@ -134,6 +133,15 @@ def handle_request(request : str):
 			return
 		name = args[0]
 		err = defs.job_m.remove_jobGroup(name)
+		if err:
+			print(err)
+
+	elif command in DELETE_JOBS:
+		if len(args) != 1:
+			print("Delete takes exactly 1 argument.")
+			return
+		name = args[0]
+		err = defs.job_m.delete_jobGroup(name)
 		if err:
 			print(err)
 
