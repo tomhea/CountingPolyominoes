@@ -2,15 +2,6 @@
 #include "graphCreator.h"
 #include "backups.h"
 
-//void itoa(int value, char* buf, int base){
-//
-//	int i = 30;
-//
-//	buf = "";
-//
-//	for(; value && i ; --i, value /= base) buf = "0123456789abcdef"[value % base] + buf;
-//}
-
 /* A utility function to reverse a string  */
 void reverse(char str[], int length)
 {
@@ -142,7 +133,6 @@ bool simpleTimedCountSubGraphs(int** nodes, u32 steps, u32 numOfNodes, int origi
 u64 recJobsCreatorGOTO(int** nodes, bool* nodesFound, int* untriedSet, int* untriedSetEnd, int** oldUntriedSetEndStack, int** untriedSetStack, u32 initSteps, u32 graphSize, u32 forkLevel, char* jobPath, const char* tempJobPath) {
     int *neighbours, *oldUntriedSetEnd;
     u32 steps = initSteps;
-
     u32 jobId = 0;
     char jobIdStr[20];
     u64 jobPathLen = strlen(jobPath);
@@ -152,10 +142,21 @@ u64 recJobsCreatorGOTO(int** nodes, bool* nodesFound, int* untriedSet, int* untr
     int** startOfOldUntriedSetEndStack = oldUntriedSetEndStack;
     int** startOfUntriedSetStack = untriedSetStack;
 
+    if (steps == forkLevel) {
+        *(untriedSetStack++) = untriedSet;
+        itoa(jobId++, jobIdStr, 10);
+        strcpy(jobPath + jobPathLen, jobIdStr);
+        doBackup(jobPath, tempJobPath, 1,
+                 steps, steps, 0, BACKUP_INTERVALS, graphSize, nodesFound,
+                 startOfUntriedSet, untriedSetEnd-startOfUntriedSet,
+                 startOfOldUntriedSetEndStack, oldUntriedSetEndStack-startOfOldUntriedSetEndStack,
+                 startOfUntriedSetStack, untriedSetStack-startOfUntriedSetStack);
+        return 1;
+    }
+
     new_call:
     neighbours = nodes[untriedSet[0]];  // [1] - get top node's neighbours from untried set (will be removed later)
                                         // [2] - we don't actually place a cell in our implementation
-
     *(untriedSetStack++) = untriedSet;          // backup untriedSet and untriedSetEnd
     *(oldUntriedSetEndStack++) = untriedSetEnd; // this will be oldUntriedSetEnd
     for (int i = 1; i <= neighbours[0]; i++) {    // [4a] - add new neighbours to untried set and found set
@@ -165,10 +166,11 @@ u64 recJobsCreatorGOTO(int** nodes, bool* nodesFound, int* untriedSet, int* untr
             nodesFound[newNode] = true;
         }
     }
-
     steps--;
+
     if (steps == forkLevel) {
-        while (++untriedSet != untriedSetEnd) {    // functions as while (...), and iterates over all possible untried set starting-points (first run - removes the top node, in reference to [1])
+        while (++untriedSet != untriedSetEnd) {
+            // functions as while (...), and iterates over all possible untried set starting-points (first run - removes the top node, in reference to [1])
             *(untriedSetStack++) = untriedSet;
             itoa(jobId++, jobIdStr, 10);
             strcpy(jobPath + jobPathLen, jobIdStr);
@@ -214,7 +216,7 @@ u32 decideWhatLevel(int** graph, int originCell, u32 numOfNodes, u64 approxNumOf
             *numOfJobs = lastResults;
             return steps-1;
         }
-        if (results > approxNumOfJobs) {
+        if (results >= approxNumOfJobs) {
             *numOfJobs = results;
             return steps;
         }
@@ -231,8 +233,6 @@ u32 decideWhatLevel(int** graph, int originCell, u32 numOfNodes, u64 approxNumOf
 /// \param jobBaseName
 /// \return 0 for success
 u64 recJobsCreatorWrapper(int** nodes, int originCell, u32 numOfNodes, u32 steps, u32 forkLevel, const char* jobBasePath) {    // jobBaseName + "_" + n + "_" + indexOfJob + ".job"
-    if (steps <= 1) return steps;
-
     bool* nodesFound = (bool*)calloc(numOfNodes, sizeof(bool));
     int* untriedSet = (int*)malloc(numOfNodes * sizeof(int));
     int** oldUntriedSetEndStack = (int**)malloc(steps * sizeof(int*));
