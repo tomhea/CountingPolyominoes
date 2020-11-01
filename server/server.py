@@ -113,10 +113,34 @@ def handle_request(request : str):
 			print("Graph takes exactly 2 arguments.")
 			return
 		graph_name, graph_path = args
-		if not is_file(graph_path):
+		graph = defs.db_m.get_graph(graph_name)
+		if graph:
+			print(f"Failed. Graph {graph_name} already exist.")
+			return
+		if not isfile(graph_path):
 			print(f"Failed. Path {abspath(graph_path)} doesn't exist.")
 			return
 		defs.db_m.register_graph(graph_path, graph_name)
+
+	elif command in UNREGISTER_GRAPH:
+		if len(args) != 1:
+			print("Unregister takes exactly 1 argument.")
+			return
+		graph_name = args[0]
+		graph = defs.db_m.get_graph(graph_name)
+		if not graph:
+			print(f"Failed. Graph {graph_name} doesn't exist.")
+			return
+		jobGroups = defs.db_m.get_all_jobGroups()
+		in_use = []
+		for name, jobGroup in jobGroups.items():
+			if jobGroup.get_graph() == graph_name and not jobGroup.is_completed():
+				in_use.append(name)
+		if in_use:
+			print(f"Failed, Graph {graph_name} is used by uncompleted jobs {in_use}")
+			return
+		defs.db_m.unregister_graph(graph_name)
+
 
 	elif command in START_JOBS:
 		if len(args) != 1:

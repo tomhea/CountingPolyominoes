@@ -46,6 +46,9 @@ class DatabaseManager:
 	def register_graph(self, graph_path : str, graph_name : str):
 		self.graphsDB.dbroot[graph_name] = graph_path
 
+	def unregister_graph(self, graph_name : str):
+		del self.graphsDB.dbroot[graph_name]
+
 	def get_graph(self, graph_name):
 		if graph_name not in list(self.graphsDB.dbroot.keys()):
 			return None

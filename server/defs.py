@@ -16,6 +16,7 @@ jobs_dir = "./Jobs/"
 
 CREATE_JOBS = ("create",)
 REGISTER_GRAPH = ("graph",)
+UNREGISTER_GRAPH = ("ungraph",)
 START_JOBS = ("start", "add")
 STOP_JOBS = ("stop",)
 DELETE_JOBS = ("delete",)
@@ -32,14 +33,16 @@ CREATE_JOBS:"""\tCreate name graph steps num
 		- Creates (About) 'num' jobs (Jobs/[name]/[name]_0,1,2,..) for calculating
 		  the number of subgraphs of the registered 'graph' with 'steps' connected nodes.
 		  The created jobs are registered in the server's database under 'name'.""",
-REGISTER_GRAPH:"""\tGraph name path
-		- Register the graph in 'path' under 'name'.""",
+DELETE_JOBS:"""\tDelete name
+        - Deletes the data, jobs and folder that registered under 'name.""",
 START_JOBS:"""\tStart [Add] name
 		- Start (or continue) working on the jobs registered under 'name'.""",
 STOP_JOBS:"""\tStop name
 		- Stop (pause) working on the jobs registered under 'name'.""",
-DELETE_JOBS:"""\tDelete name
-        - Deletes the data, jobs and folder that registered under 'name.""",
+REGISTER_GRAPH:"""\tGraph name path
+		- Register the graph in 'path' under 'name'.""",
+UNREGISTER_GRAPH:"""\tUngraph name
+		- Unegister the graph named 'name'.""",
 RESCHEDULE:"""\tReschedule [Resched] name (time)
 		- Requeue jobs registered under 'name' that are alive for more then 'time' minutes.
 		  If 'time' isn't specified, all active jobs will be requeued.""",
@@ -64,7 +67,7 @@ WELCOME_MESSAGE = "Welcome to SubgraphCounter Server-App!"
 HELP_MSG1 = "List of all possible commands:"
 HELP_MSG2 = " The [] specifies more names for the same command (commands are not case sensitive),"
 HELP_MSG3 = " and the arguments are placed afterwords. The () specifies optional arguments."
-CMD_ORDER = [CREATE_JOBS, REGISTER_GRAPH, START_JOBS, STOP_JOBS, DELETE_JOBS, RESCHEDULE, HELP, LIST_DATA, GET_PERCENTAGE, GET_LATEST_RESULTS, PRIORITY, CLOSE_APP]
+CMD_ORDER = [START_JOBS, STOP_JOBS, CREATE_JOBS, DELETE_JOBS, REGISTER_GRAPH, UNREGISTER_GRAPH, RESCHEDULE, HELP, LIST_DATA, GET_PERCENTAGE, GET_LATEST_RESULTS, PRIORITY, CLOSE_APP]
 
 SERVER_BIND = '0.0.0.0'
 SERVER_PORT = 36446

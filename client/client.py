@@ -44,7 +44,7 @@ def connect_to(ip, port):
 			if first_try:
 				ndprint("Can't connect to server. I'm keep trying...")
 				first_try = False
-			sleep(3)
+		sleep(3)
 
 
 def sendfile(s : socket, path : str):
