@@ -4,8 +4,9 @@
 from sys import argv, stdin
 from os import remove
 from os.path import isfile, isdir, abspath
-from time import time, sleep
 from socket import socket
+from select import select
+from time import time, sleep
 from threading import Thread
 from multiprocessing import cpu_count, Process, Queue
 
@@ -13,7 +14,7 @@ from defs import *
 from redelClient import *
 
 global server_socket
-global manager_thread
+global manager_thread, shutting_down
 global process_dict
 global prints
 global total_counting_contribution, total_jobs_done, total_jobs_failed, total_updates, start_time
@@ -33,26 +34,36 @@ def safe_int(x: str):
 
 # Non-Deterministic Print
 def ndprint(s: str):
-	print(f'\n{s}\n{INPUT_PROMPT}', end="")
+	print(f'\n{s}')
+	show_prompt()
+
+
+def show_prompt():
+	print(INPUT_PROMPT, end="", flush=True)
 
 
 def connect_to(ip: str, port: int) -> socket:
 	first_try = True
+	connect_start_time = time()
 	while True:
+		if time() - connect_start_time > CONNECT_TIMEOUT:
+			return None
 		try:
 			s = socket()
 			s.connect((ip, port))
 			return s
 		except Exception as e:
+			if s:
+				s.close()
 			if first_try:
 				ndprint(f"Can't connect to server ({repr(e)}). I'm keep trying...")
 				first_try = False
-		sleep(3)
+			sleep(1)
 
 
-def sendfile(s: socket, path: str):
+def sendfile(s: socket, path: str) -> bool:
 	with open(path, 'rb') as f:
-		send(s, f.read())
+		return send(s, f.read())
 
 
 def recvfile(s: socket, path: str) -> bool:
@@ -64,15 +75,26 @@ def recvfile(s: socket, path: str) -> bool:
 	return True
 
 
+def sendall_timed(s: socket, data: bytes) -> bool:
+	send_start_time = time()
+	while data:
+		if time() - send_start_time > SEND_TIMEOUT:
+			return False
+		bytes_sent = s.send(data)
+		data = data[bytes_sent:]
+	return True
+
+
 # msg can be string or bytes
-def send(s: socket, msg):
-	s.sendall(str(len(msg)).zfill(8).encode())
+def send(s: socket, msg) -> bool:
+	if not sendall_timed(s, str(len(msg)).zfill(8).encode()):
+		return False
 	encode = (type(msg) == str)
 	for start_chunk in range(0, len(msg), BUFFER_SIZE):
-		if encode:
-			s.sendall(msg[start_chunk:start_chunk + BUFFER_SIZE].encode())
-		else:
-			s.sendall(msg[start_chunk:start_chunk + BUFFER_SIZE])
+		data = msg[start_chunk:start_chunk + BUFFER_SIZE]
+		if not sendall_timed(s, data.encode() if encode else data):
+			return False
+	return True
 
 
 def recv(s: socket, decode: bool = True):
@@ -95,7 +117,8 @@ def print_statistics(finish: bool = False):
 		print(f"You are currently working on {len(process_dict)} jobs.")
 	print(f"You helped counting a total of {total_counting_contribution:,} sub-graphs this session,")
 	print(f"    while finishing {total_jobs_done:,} different jobs!")
-	print(f"Moreover, you sent a total of {total_updates} valuable updates!")
+	if total_updates:
+		print(f"Moreover, you sent a total of {total_updates} valuable updates!")
 	if total_jobs_failed:
 		print(f"  Between here and then, {total_jobs_failed} job calculations run into errors.")
 	if finish:
@@ -104,6 +127,23 @@ def print_statistics(finish: bool = False):
 		print(f"This session was {working_hours:,.02f} hours long,")
 		print(f"    which are {working_hours * cores:,.02f} hours considering your {cores} cores :)")
 		print("\nThank you :)")
+
+
+def force_close_by_manager(at_start: bool = False):
+	if at_start:
+		print(SERVER_DOWN_MSG)
+
+	else:
+		for job_id, p in process_dict.items():
+			p.terminate()
+			p.join()
+
+		print()
+		print(SERVER_DOWN_MSG)
+		print_statistics(finish=True)
+
+	global shutting_down
+	shutting_down = True
 
 
 def close_and_update(reopen: bool = False):
@@ -189,7 +229,8 @@ def handle_request(request: str):
 		close_and_update()
 		if server_socket:
 			server_socket.close()
-		exit()
+		global shutting_down
+		shutting_down = True
 
 	else:
 		print(f'No such command: "{command}".')
@@ -211,6 +252,9 @@ def execute_manager(max_subprocess: int):
 	q = Queue()
 
 	server_socket = connect_to(SERVER_IP, SERVER_PORT)
+	if not server_socket:
+		force_close_by_manager(at_start=True)
+		return
 	last_job_found = True
 	while True:
 		try:
@@ -239,7 +283,7 @@ def execute_manager(max_subprocess: int):
 			if len(process_dict) >= max_subprocess:
 				sleep(1)
 				continue
-
+			
 			send(server_socket, GET_JOB)
 			response = recv(server_socket)
 			if response is None:
@@ -291,6 +335,9 @@ def execute_manager(max_subprocess: int):
 			if server_socket:
 				server_socket.close()
 			server_socket = connect_to(SERVER_IP, SERVER_PORT)
+			if not server_socket:
+				force_close_by_manager()
+				return
 			last_job_found = True
 
 
@@ -310,10 +357,11 @@ def close_manager():
 
 
 def main():
-	global manager_thread
+	global manager_thread, shutting_down
 	global prints
 	global total_counting_contribution, total_jobs_done, total_jobs_failed, total_updates, start_time
 	manager_thread = None
+	shutting_down = False
 	total_counting_contribution = total_jobs_done = total_jobs_failed = total_updates = 0
 	start_time = time()
 
@@ -324,9 +372,14 @@ def main():
 
 			print(WELCOME_MESSAGE)
 			print("Enter 'Help' or 'H' for more details.\n")
+			show_prompt()
 			while True:
-				print(INPUT_PROMPT, end="")
-				handle_request(input())
+				if shutting_down:
+					return 
+				r,_,_ = select([stdin], [], [], 1)
+				if r:
+					handle_request(input())
+					show_prompt()				
 
 		except Exception as e:
 			ndprint('Error occurred on main thread: \n\t' + repr(e))

@@ -1,9 +1,9 @@
 from sys import argv, stdin
 from os import remove
 from os.path import isfile, isdir, abspath
-from time import time
 from select import select
 from socket import socket
+from time import time, sleep
 
 import defs
 from defs import *
@@ -30,7 +30,13 @@ def safe_int(x: str):
 
 # Non-Deterministic Print
 def ndprint(s: str):
-	print(f'\n{s}\n{INPUT_PROMPT}', end="")
+	print(f'\n{s}')
+	show_prompt()
+
+
+def show_prompt():
+	print(INPUT_PROMPT, end="", flush=True)
+
 
 
 def listen_on(ip: str, port: int) -> socket:
@@ -40,9 +46,9 @@ def listen_on(ip: str, port: int) -> socket:
 	return s
 
 
-def sendfile(s: socket, path: str):
+def sendfile(s: socket, path: str) -> bool:
 	with open(path, 'rb') as f:
-		send(s, f.read())
+		return send(s, f.read())
 
 
 def recvfile(s: socket, path: str) -> bool:
@@ -54,15 +60,26 @@ def recvfile(s: socket, path: str) -> bool:
 	return True
 
 
+def sendall_timed(s: socket, data: bytes) -> bool:
+	send_start_time = time()
+	while data:
+		if time() - send_start_time > SEND_TIMEOUT:
+			return False
+		bytes_sent = s.send(data)
+		data = data[bytes_sent:]
+	return True
+
+
 # msg can be string or bytes
-def send(s: socket, msg):
-	s.sendall(str(len(msg)).zfill(8).encode())
+def send(s: socket, msg) -> bool:
+	if not sendall_timed(s, str(len(msg)).zfill(8).encode()):
+		return False
 	encode = (type(msg) == str)
 	for start_chunk in range(0, len(msg), BUFFER_SIZE):
-		if encode:
-			s.sendall(msg[start_chunk:start_chunk + BUFFER_SIZE].encode())
-		else:
-			s.sendall(msg[start_chunk:start_chunk + BUFFER_SIZE])
+		data = msg[start_chunk:start_chunk + BUFFER_SIZE]
+		if not sendall_timed(s, data.encode() if encode else data):
+			return False
+	return True
 
 
 def recv(s: socket, decode=True):
@@ -324,7 +341,7 @@ def handle_client(c: socket, addr: (str, int)):
 def auto_resched():
 	global last_auto_resched
 	if time() > last_auto_resched + SCHEDULER_CHECK_TIME:
-		last_auto_resched += SCHEDULER_CHECK_TIME
+		last_auto_resched = time()
 		rescheduled = defs.job_m.reschedule_long_waiting_jobs()
 		if rescheduled:
 			ndprint(f"Automatically rescheduled {rescheduled} jobs.")
@@ -350,7 +367,7 @@ def main():
 
 		print(WELCOME_MESSAGE)
 		print("Enter 'Help' or 'H' for more details.\n")
-		print(INPUT_PROMPT, end="")
+		show_prompt()
 
 		while True:
 			r, _, _ = select([server_socket, stdin] + clients, [], [])
@@ -361,7 +378,7 @@ def main():
 					clients.append(c)
 				elif c == stdin:
 					handle_request(input())
-					print(INPUT_PROMPT, end="")
+					show_prompt()
 				else:
 					handle_client(c, socket2addr[c])
 

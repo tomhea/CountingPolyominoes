@@ -73,6 +73,7 @@ HELP_MSG3 = " and the arguments are placed afterwords. The () specifies optional
 CMD_ORDER = [START_JOBS, STOP_JOBS, CREATE_JOBS, DELETE_JOBS, REGISTER_GRAPH, UNREGISTER_GRAPH, RESCHEDULE, HELP, LIST_DATA, GET_PERCENTAGE, GET_LATEST_RESULTS, PRIORITY, CLOSE_APP]
 
 INPUT_PROMPT = {'utf-32': '⛟ ', 'utf-16': '⛟ ', 'utf-8': '» '}.get(stdout.encoding, '~ ')
+SEND_TIMEOUT = 1
 
 SERVER_BIND = '0.0.0.0'
 SERVER_PORT = 36446

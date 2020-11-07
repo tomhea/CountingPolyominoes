@@ -44,8 +44,12 @@ HELP_MSG2 = " The [] specifies more names for the same command (commands are not
 HELP_MSG3 = " and the arguments are placed afterwords. The () specifies optional arguments."
 CMD_ORDER = [GET_STATISTICS, HELP, SET_PRINTS, UPDATE, CLOSE_APP]
 
+SERVER_DOWN_MSG = '\nServer Must Be Down. shutting down...\n'
+
 INPUT_PROMPT = {'utf-32': '⛟ ', 'utf-16': '⛟ ', 'utf-8': '» '}.get(stdout.encoding, '~ ')
 RESULT_EXCEPTION = -1
+SEND_TIMEOUT = 5
+CONNECT_TIMEOUT = 3
 
 SERVER_IP = '127.0.0.1'
 SERVER_PORT = 36446
