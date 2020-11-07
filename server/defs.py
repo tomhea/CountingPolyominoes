@@ -1,3 +1,6 @@
+from sys import stdout
+
+
 global job_m, db_m
 job_m = None
 db_m = None
@@ -68,6 +71,8 @@ HELP_MSG1 = "List of all possible commands:"
 HELP_MSG2 = " The [] specifies more names for the same command (commands are not case sensitive),"
 HELP_MSG3 = " and the arguments are placed afterwords. The () specifies optional arguments."
 CMD_ORDER = [START_JOBS, STOP_JOBS, CREATE_JOBS, DELETE_JOBS, REGISTER_GRAPH, UNREGISTER_GRAPH, RESCHEDULE, HELP, LIST_DATA, GET_PERCENTAGE, GET_LATEST_RESULTS, PRIORITY, CLOSE_APP]
+
+INPUT_PROMPT = {'utf-32': '⛟ ', 'utf-16': '⛟ ', 'utf-8': '» '}.get(stdout.encoding, '~ ')
 
 SERVER_BIND = '0.0.0.0'
 SERVER_PORT = 36446

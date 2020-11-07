@@ -8,41 +8,41 @@ void recover(bool mainBackup, const char* backUpPath, const char* tempBackUpPath
              int** startOfUntriedSetStack, int**& untriedSetStackPtr) {
     FILE *f;
     f = fopen(mainBackup ? backUpPath : tempBackUpPath, "rb");
-    int temp; u64 temp64;
+    int temp; u32 temp32; u64 temp64;
 
-    fread(&temp, sizeof(u32), 1, f);
-    initSteps = temp;
-    fread(&temp, sizeof(u32), 1, f);
-    steps = temp;
-    fread(&temp64, sizeof(u64), 1, f);
+    fread(&temp32, 4, 1, f);
+    initSteps = temp32;
+    fread(&temp32, 4, 1, f);
+    steps = temp32;
+    fread(&temp64, 8, 1, f);
     counted = temp64;
-    fread(&temp, sizeof(int), 1, f);
+    fread(&temp, 4, 1, f);
     isNewJob = temp;
-    fread(&temp64, sizeof(u64), 1, f);
+    fread(&temp64, 8, 1, f);
     nextBackup = temp64;
 
-    fread(&temp, sizeof(u32), 1, f);
-    graphSize = temp;
-    fread(nodesFound, sizeof(bool), graphSize, f);
+    fread(&temp32, 4, 1, f);
+    graphSize = temp32;
+    fread(nodesFound, 1, graphSize, f);
 
     int untriedSetEndIdx;
-    fread(&untriedSetEndIdx, sizeof(int), 1, f);
-    fread(startOfUntriedSet, sizeof(int), untriedSetEndIdx, f);
+    fread(&untriedSetEndIdx, 4, 1, f);
+    fread(startOfUntriedSet, 4, untriedSetEndIdx, f);
     untriedSetEndPtr = startOfUntriedSet + untriedSetEndIdx;
 
     int* prevStartOfUntriedSet;
-    fread(&prevStartOfUntriedSet, sizeof(int*), 1, f);
+    fread(&prevStartOfUntriedSet, 8, 1, f);
 
     int oldUntriedSetEndStackIdx;
-    fread(&oldUntriedSetEndStackIdx, sizeof(int), 1, f);
-    fread(startOfOldUntriedSetEndStack, sizeof(int*), oldUntriedSetEndStackIdx, f);
+    fread(&oldUntriedSetEndStackIdx, 4, 1, f);
+    fread(startOfOldUntriedSetEndStack, 8, oldUntriedSetEndStackIdx, f);
     oldUntriedSetEndStackPtr = startOfOldUntriedSetEndStack + oldUntriedSetEndStackIdx;
     for (int i = 0; i < oldUntriedSetEndStackIdx; i++)
         startOfOldUntriedSetEndStack[i] = startOfUntriedSet + (startOfOldUntriedSetEndStack[i] - prevStartOfUntriedSet);
 
     int untriedSetStackIdx;
-    fread(&untriedSetStackIdx, sizeof(int), 1, f);
-    fread(startOfUntriedSetStack, sizeof(int*), untriedSetStackIdx, f);
+    fread(&untriedSetStackIdx, 4, 1, f);
+    fread(startOfUntriedSetStack, 8, untriedSetStackIdx, f);
     untriedSetStackPtr = startOfUntriedSetStack + untriedSetStackIdx;
     for (int i = 0; i < untriedSetStackIdx; i++)
         startOfUntriedSetStack[i] = startOfUntriedSet + (startOfUntriedSetStack[i] - prevStartOfUntriedSet);
@@ -60,25 +60,25 @@ void doBackup(const char* backUpPath, const char* tempBackUpPath, int isNewJob,
     FILE *f;
     f = fopen(tempBackUpPath , "wb");
 
-    fwrite(&initSteps, sizeof(u32), 1, f);
-    fwrite(&steps, sizeof(u32), 1, f);
-    fwrite(&counted, sizeof(u64), 1, f);
-    fwrite(&isNewJob, sizeof(int), 1, f);
-    fwrite(&nextBackup, sizeof(u64), 1, f);
+    fwrite(&initSteps, 4, 1, f);
+    fwrite(&steps, 4, 1, f);
+    fwrite(&counted, 8, 1, f);
+    fwrite(&isNewJob, 4, 1, f);
+    fwrite(&nextBackup, 8, 1, f);
 
-    fwrite(&graphSize, sizeof(u32), 1, f);
-    fwrite(nodesFound, sizeof(bool), graphSize, f);
+    fwrite(&graphSize, 4, 1, f);
+    fwrite(nodesFound, 1, graphSize, f);
 
-    fwrite(&untriedSetEndIdx, sizeof(int), 1, f);
-    fwrite(startOfUntriedSet, sizeof(int), untriedSetEndIdx, f);
+    fwrite(&untriedSetEndIdx, 4, 1, f);
+    fwrite(startOfUntriedSet, 4, untriedSetEndIdx, f);
 
-    fwrite(&startOfUntriedSet, sizeof(int*), 1, f);
+    fwrite(&startOfUntriedSet, 8, 1, f);
 
-    fwrite(&oldUntriedSetEndStackIdx, sizeof(int), 1, f);
-    fwrite(startOfOldUntriedSetEndStack, sizeof(int*), oldUntriedSetEndStackIdx, f);
+    fwrite(&oldUntriedSetEndStackIdx, 4, 1, f);
+    fwrite(startOfOldUntriedSetEndStack, 8, oldUntriedSetEndStackIdx, f);
 
-    fwrite(&untriedSetStackIdx, sizeof(int), 1, f);
-    fwrite(startOfUntriedSetStack, sizeof(int*), untriedSetStackIdx, f);
+    fwrite(&untriedSetStackIdx, 4, 1, f);
+    fwrite(startOfUntriedSetStack, 8, untriedSetStackIdx, f);
 
     fclose(f);
 

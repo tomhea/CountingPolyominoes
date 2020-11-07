@@ -1,10 +1,10 @@
 from sys import argv, stdin
+from os import remove
+from os.path import isfile, isdir, abspath
+from time import time
 from select import select
 from socket import socket
-from threading import Thread
-from time import sleep
-from os.path import isfile, isdir, abspath
-from os import remove
+
 import defs
 from defs import *
 from redelServer import *
@@ -13,15 +13,15 @@ from jobManager import JobManager
 import transaction
 
 global server_socket, clients
-global jobs_scheduler_deamon
+global last_auto_resched
 
 
 # handle annoying whitespaces from start, middle and end
-def remove_whitespaces(s : str):
+def remove_whitespaces(s: str) -> str:
 	return ' '.join(s.split())
 
 
-def safe_int(x):
+def safe_int(x: str):
 	try:
 		return int(x)
 	except ValueError:
@@ -29,24 +29,23 @@ def safe_int(x):
 
 
 # Non-Deterministic Print
-def ndprint(s):
-	print(f'\r{" " * 30}\n{s}')
-	print("⛟ ", end="")
+def ndprint(s: str):
+	print(f'\n{s}\n{INPUT_PROMPT}', end="")
 
 
-def listen_on(ip : str, port : int):
+def listen_on(ip: str, port: int) -> socket:
 	s = socket()
 	s.bind((ip, port))
 	s.listen(5)
 	return s
 
 
-def sendfile(s : socket, path : str):
+def sendfile(s: socket, path: str):
 	with open(path, 'rb') as f:
 		send(s, f.read())
 
 
-def recvfile(s : socket, path : str):
+def recvfile(s: socket, path: str) -> bool:
 	data = recv(s, False)
 	if data is None:
 		return False
@@ -55,8 +54,8 @@ def recvfile(s : socket, path : str):
 	return True
 
 
-#msg can be string or bytes
-def send(s : socket, msg):
+# msg can be string or bytes
+def send(s: socket, msg):
 	s.sendall(str(len(msg)).zfill(8).encode())
 	encode = (type(msg) == str)
 	for start_chunk in range(0, len(msg), BUFFER_SIZE):
@@ -66,7 +65,7 @@ def send(s : socket, msg):
 			s.sendall(msg[start_chunk:start_chunk + BUFFER_SIZE])
 
 
-def recv(s : socket, decode = True):
+def recv(s: socket, decode=True):
 	meta_data = s.recv(8).decode()
 	if not meta_data:
 		return None
@@ -81,7 +80,7 @@ def recv(s : socket, decode = True):
 	return msg
 
 
-def handle_request(request : str):
+def handle_request(request: str):
 	request = remove_whitespaces(request)
 	command, *args = request.split(' ')
 	command = command.lower()
@@ -104,7 +103,7 @@ def handle_request(request : str):
 		print('Started creating jobs, it may take a while...')
 		res = defs.job_m.create_jobGroup(graph_name, steps, approximate, name)
 		if type(res) is str:
-			print(res) # print error
+			print(res)  # print error
 		else:
 			print(f"Done! A total of {res} jobs were created.")
 
@@ -141,7 +140,6 @@ def handle_request(request : str):
 			return
 		defs.db_m.unregister_graph(graph_name)
 
-
 	elif command in START_JOBS:
 		if len(args) != 1:
 			print("Start takes exactly 1 argument.")
@@ -174,15 +172,15 @@ def handle_request(request : str):
 			print("Stop takes exactly 1 or 2 arguments.")
 			return
 		name = args[0]
-		time = safe_int(args[1]) if len(args) > 1 else 0
-		if time is None or time < 0:
-			print('Failed. Time should be a positive number (or 0).')
+		minutes = safe_int(args[1]) if len(args) > 1 else 0
+		if minutes is None or minutes < 0:
+			print('Failed. Time should be a positive integer (or 0).')
 
 		jobGroup = defs.db_m.get_jobGroup(name)
 		if not jobGroup:
 			print(f"Failed. {name} not found.")
 			return
-		rescheduled = jobGroup.reschedule_long_waiting_jobs(time)
+		rescheduled = jobGroup.reschedule_long_waiting_jobs(minutes)
 		if rescheduled > 0:
 			print(f"Rescheduled {rescheduled} jobs.")
 
@@ -216,7 +214,7 @@ def handle_request(request : str):
 		if not data_type or data_type in {"group", "groups"}:
 			data = {name: jobGroup.get_percentage() for name, jobGroup in defs.db_m.get_all_jobGroups().items()}
 			print("Available groups:")
-			print('\n'.join([f"\t{name}: \t{perc:.2f}%" for name,perc in data.items()]))
+			print('\n'.join([f"\t{name}: \t{perc:.2f}%" for name, perc in data.items()]))
 		if not data_type or data_type in {"queue", "queues"}:
 			data = defs.job_m.get_queued_jobGroups()
 			print("Queued groups:")
@@ -249,11 +247,11 @@ def handle_request(request : str):
 			print(f"Estimated results: \t~{int(res / (perc/100)):,}")
 
 	elif command in PRIORITY:
-		if len(args) not in (0,2):
+		if len(args) not in (0, 2):
 			print("Priority takes exactly 0 or 2 arguments.")
 			return
 		elif not args:
-			for i,name in enumerate(defs.job_m.get_queued_jobGroups()):
+			for i, name in enumerate(defs.job_m.get_queued_jobGroups()):
 				print(f'\t{i+1}) \t{name}')
 			pass
 		else:
@@ -269,14 +267,13 @@ def handle_request(request : str):
 		if len(args) >= 1:
 			print("Close takes no arguments.")
 			return
-		global running
-		running = False
+		exit()
 
 	else:
 		print(f'No such command: "{command}".')
 
 
-def handle_client(c : socket, addr):
+def handle_client(c: socket, addr: (str, int)):
 	data = recv(c)
 	if not data:
 		clients.remove(c)
@@ -323,21 +320,20 @@ def handle_client(c : socket, addr):
 				print(f"Updated {job_id}")
 			remove(updated_job_path)
 
-def jobs_scheduler(check_time_seconds):
-	global running
-	while True:
-		for _ in range(check_time_seconds):
-			sleep(1)
-			if not running:
-				return
+
+def auto_resched():
+	global last_auto_resched
+	if time() > last_auto_resched + SCHEDULER_CHECK_TIME:
+		last_auto_resched += SCHEDULER_CHECK_TIME
 		rescheduled = defs.job_m.reschedule_long_waiting_jobs()
 		if rescheduled:
 			ndprint(f"Automatically rescheduled {rescheduled} jobs.")
 
+
 def main():
 	global server_socket, clients
 	server_socket, clients = None, []
-	global jobs_scheduler_deamon, running
+	global last_auto_resched
 
 	try:
 		defs.db_m = DatabaseManager()
@@ -347,19 +343,17 @@ def main():
 			defs.db_m.register_jobManager(defs.job_m)
 			transaction.commit()
 
-		running = True
-		jobs_scheduler_deamon = Thread(target=jobs_scheduler, args=(SCHEDULER_CHECK_TIME,))
-		jobs_scheduler_deamon.start()
+		last_auto_resched = time()
 
 		server_socket = listen_on(SERVER_BIND, SERVER_PORT)
 		socket2addr = {}
 
 		print(WELCOME_MESSAGE)
 		print("Enter 'Help' or 'H' for more details.\n")
-		print("⛟ ", end="")
+		print(INPUT_PROMPT, end="")
 
-		while running:
-			r,_,_ = select([server_socket,stdin]+clients, [], [])
+		while True:
+			r, _, _ = select([server_socket, stdin] + clients, [], [])
 			for c in r:
 				if c == server_socket:
 					c, addr = server_socket.accept()
@@ -367,26 +361,24 @@ def main():
 					clients.append(c)
 				elif c == stdin:
 					handle_request(input())
-					if running:
-						print("⛟ ", end="")
+					print(INPUT_PROMPT, end="")
 				else:
 					handle_client(c, socket2addr[c])
+
+			auto_resched()
 			transaction.commit()
 
 	except Exception as e:
-		print('Error Occurred: \n\t' + repr(e))
+		ndprint('Error occurred: \n\t' + repr(e))
 
 	finally:
 		print("Start closing.")
-		running = False
 		if defs.db_m:
 			defs.db_m.close()
 		if server_socket:
 			server_socket.close()
 		for c in clients:
 			c.close()
-		if jobs_scheduler_deamon:
-			jobs_scheduler_deamon.join()
 		print("Done closing.")
 
 
