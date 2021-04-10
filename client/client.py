@@ -313,7 +313,13 @@ def execute_manager(max_subprocess: int):
 				continue
 			job_path = jobs_dir + job_id
 
-			if not recvfile(server_socket, job_path):
+			####################
+
+			if isfile(job_path):
+				if job_id in process_dict:
+					# TODO: notify server
+					continue
+			elif not recvfile(server_socket, job_path):
 				ndprint('Weird server response (job file).')
 				sleep(1)
 				continue
