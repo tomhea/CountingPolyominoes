@@ -182,6 +182,10 @@ int** createPolyominoGraphImproved(int p, int* originCellPtr, u32* nPtr) {
     return nodes;
 }
 
+
+/// 
+/// \param path
+/// \param size
 void createPolyominoGraphFile(const char* path, int size){
     ofstream file;
     file.open (path);
@@ -191,6 +195,7 @@ void createPolyominoGraphFile(const char* path, int size){
     int** graph = createPolyominoGraphImproved(size, &originCell, &numOfNodes);
     file << numOfNodes << endl;
     file << originCell << endl;
+    file << 0 << endl;
     for (u32 i = 0; i < numOfNodes; ++i) {
         file << i << " " << graph[i][0];
         for (int j = 0; j < graph[i][0]; ++j) {
@@ -209,17 +214,21 @@ int** extractGraph(int** nodesData, int* originCell, u32* numOfNodes){
     int id;
     int numOfNeighbors;
     int* neighbors;
+
     for (u32 i = 0; i < *numOfNodes; i++) {
         id = nodesData[i][0];
         if(idConverter.find(id) == idConverter.end())
             idConverter.insert(pair<int,int>(id,newIds++));
+    }
+    for (u32 i = 0; i < *numOfNodes; i++) {
+        id = nodesData[i][0];
 
         numOfNeighbors = nodesData[i][1];
         neighbors = (int*) malloc((1 + numOfNeighbors) * sizeof(int));
         neighbors[0] = numOfNeighbors;
         for (int j = 0; j < numOfNeighbors; ++j) {
-            if(idConverter.find(nodesData[i][2+j]) == idConverter.end())
-                idConverter.insert(pair<int,int>(nodesData[i][2+j],newIds++));
+            // if(idConverter.find(nodesData[i][2+j]) == idConverter.end())
+            //     idConverter.insert(pair<int,int>(nodesData[i][2+j],newIds++));
             neighbors[j+1] = idConverter.at(nodesData[i][2+j]);
         }
 
@@ -232,6 +241,11 @@ int** extractGraph(int** nodesData, int* originCell, u32* numOfNodes){
 
 void readGraphFromFile(const char* path, int* originCell, int*** graph, u32* numOfNodes) {
     ifstream file(path);
+    string number;
+    stringstream ss;
+
+    int protocol;
+
     if (file.is_open())
     {
         string graphMetadata;
@@ -241,9 +255,24 @@ void readGraphFromFile(const char* path, int* originCell, int*** graph, u32* num
         *numOfNodes = (u32)stoi(graphData);
         getline(file, graphData);
         *originCell = stoi(graphData);
+        getline(file, graphData);
+        ss << graphData;
+        ss >> number;
+        protocol = stoi(number);
+        switch(protocol) {
+            case REGULAR_GRAPH:
+                break;
+            case MIN_MAX_CONDITION_GRAPH:
+                ss >> number;
+                int min = stoi(number);
+                ss >> number;
+                int max = stoi(number);
+                //TODO pass it forward;
+                break;
+        }
         int** nodesData = (int**)malloc(*numOfNodes * sizeof(int*));
+        
         string line;
-        string number;
         int id, numOfNeighbors;
         for (u32 i = 0; i < *numOfNodes; ++i){
             stringstream ss;
