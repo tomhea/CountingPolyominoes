@@ -1,6 +1,5 @@
 #!./python3.8
 
-
 from sys import argv, stdin
 from os import remove
 from os.path import isfile, isdir, abspath

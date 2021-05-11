@@ -1,0 +1,6 @@
+#!/bin/bash
+
+g++ -std=c++11 -m64 -O3 -fpic -c redelServer.cpp graphCreator.cpp backups.cpp
+g++ -shared redelServer.o graphCreator.o backups.o -o ../server/libRedelServer.so
+
+rm redelServer.o graphCreator.o backups.o
