@@ -195,7 +195,7 @@ void createPolyominoGraphFile(const char* path, int size){
     int** graph = createPolyominoGraphImproved(size, &originCell, &numOfNodes);
     file << numOfNodes << endl;
     file << originCell << endl;
-    file << 0 << endl;
+//    file << 0 << endl;
     for (u32 i = 0; i < numOfNodes; ++i) {
         file << i << " " << graph[i][0];
         for (int j = 0; j < graph[i][0]; ++j) {
@@ -244,7 +244,7 @@ void readGraphFromFile(const char* path, int* originCell, int*** graph, u32* num
     string number;
     stringstream ss;
 
-    int protocol;
+//    int protocol;
 
     if (file.is_open())
     {
@@ -255,21 +255,21 @@ void readGraphFromFile(const char* path, int* originCell, int*** graph, u32* num
         *numOfNodes = (u32)stoi(graphData);
         getline(file, graphData);
         *originCell = stoi(graphData);
-        getline(file, graphData);
-        ss << graphData;
-        ss >> number;
-        protocol = stoi(number);
-        switch(protocol) {
-            case REGULAR_GRAPH:
-                break;
-            case MIN_MAX_CONDITION_GRAPH:
-                ss >> number;
-                int min = stoi(number);
-                ss >> number;
-                int max = stoi(number);
-                //TODO pass it forward;
-                break;
-        }
+//        getline(file, graphData);
+//        ss << graphData;
+//        ss >> number;
+//        protocol = stoi(number);
+//        switch(protocol) {
+//            case REGULAR_GRAPH:
+//                break;
+//            case MIN_MAX_CONDITION_GRAPH:
+//                ss >> number;
+//                int min = stoi(number);
+//                ss >> number;
+//                int max = stoi(number);
+//                //TODO pass it forward;
+//                break;
+//        }
         int** nodesData = (int**)malloc(*numOfNodes * sizeof(int*));
         
         string line;
