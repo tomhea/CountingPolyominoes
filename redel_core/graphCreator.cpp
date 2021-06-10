@@ -283,7 +283,7 @@ void readGraphFromFile(const char* path, int* originCell, int*** graph, u32* num
             id = stoi(number);
             ss >> number;
             numOfNeighbors = stoi(number);
-            nodesData[i] = (int*)malloc((1 + numOfNeighbors) * sizeof(int));
+            nodesData[i] = (int*)malloc((2 + numOfNeighbors) * sizeof(int));
             nodesData[i][0] = id;
             nodesData[i][1] = numOfNeighbors;
             for (int j = 0; j < numOfNeighbors; ++j) {
