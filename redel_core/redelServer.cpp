@@ -208,19 +208,18 @@ bool canIFinishIt(const char* graphFilePath, u32 steps, u64* result) {
     return simpleTimedCountSubGraphs(graph, steps, numOfNodes, originCell, result);
 }
 
-u32 decideWhatLevel(int** graph, int originCell, u32 numOfNodes, u64 approxNumOfJobs, u64* numOfJobs) {
+u32 decideWhatLevel(int** graph, int originCell, u32 numOfNodes, u64 approxNumOfJobs, int maxSteps) {
     u32 steps = 1;
-    u64 lastResults=-1, results=-1;
+    u64 results=-1;
     while (true) {
+        if (steps == maxSteps)
+            return max(maxSteps-1,1);
         if (simpleTimedCountSubGraphs(graph, steps, numOfNodes, originCell, &results) == false) {
-            *numOfJobs = lastResults;
             return steps-1;
         }
         if (results >= approxNumOfJobs) {
-            *numOfJobs = results;
             return steps;
         }
-        lastResults = results;
         steps++;
     }
 }
@@ -267,7 +266,8 @@ int jobsCreator(const char* graphFilePath, u32 steps, int approxNumOfJobs, const
     u32 numOfNodes;
 
     readGraphFromFile(graphFilePath, &originCell, &graph, &numOfNodes);
-    u32 level = decideWhatLevel(graph, originCell, numOfNodes, approxNumOfJobs, &numOfJobs);
+    // u32 level = decideWhatLevel(graph, originCell, numOfNodes, approxNumOfJobs, &numOfJobs);
+    u32 level = decideWhatLevel(graph, originCell, numOfNodes, approxNumOfJobs, steps);
     u64 jobsCreated = recJobsCreatorWrapper(graph, originCell, numOfNodes, steps, steps - (level-1), jobBasePath);
     deleteGraph(graph, numOfNodes);
     return jobsCreated;
